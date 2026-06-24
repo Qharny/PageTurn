@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../theme.dart';
 import '../home/mock_books.dart';
@@ -168,7 +167,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                 child: Image.asset(
                   'assets/images/profile_avatar.png',
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => const Icon(
+                  errorBuilder: (_, _, _) => const Icon(
                     Icons.person_rounded,
                     size: 44,
                     color: Colors.white70,
@@ -382,7 +381,7 @@ class _ProfileScreenState extends State<ProfileScreen>
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: finished.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              separatorBuilder: (_, _) => const SizedBox(width: 12),
               itemBuilder: (context, i) {
                 final book = finished[i];
                 return GestureDetector(
@@ -396,7 +395,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                           width: 110,
                           height: 165,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
+                          errorBuilder: (_, _, _) => Container(
                             width: 110,
                             height: 165,
                             color: const Color(0xFFE0D4C8),
@@ -507,7 +506,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                 width: 52,
                 height: 72,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
+                errorBuilder: (_, _, _) => Container(
                   width: 52,
                   height: 72,
                   color: const Color(0xFFE0D4C8),

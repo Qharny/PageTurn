@@ -85,7 +85,7 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
                       child: Image.asset(
                         widget.book.coverAsset,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(color: _darkBrown),
+                        errorBuilder: (_, _, _) => Container(color: _darkBrown),
                       ),
                     )
                   : Container(color: _darkBrown),
@@ -200,7 +200,7 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
                         fit: BoxFit.cover,
                         width: coverW,
                         height: coverH,
-                        errorBuilder: (_, __, ___) => _fallbackCover(),
+                        errorBuilder: (_, _, _) => _fallbackCover(),
                       )
                     : _fallbackCover(),
               ),

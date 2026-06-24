@@ -128,7 +128,7 @@ class AudiobooksScreen extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               Image.asset(book.coverAsset, fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(color: const Color(0xFF2C3E50))),
+                errorBuilder: (_, _, _) => Container(color: const Color(0xFF2C3E50))),
               Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -224,7 +224,7 @@ class AudiobooksScreen extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
               child: Image.asset(book.coverAsset,
                 width: 64, height: 64, fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
+                errorBuilder: (_, _, _) => Container(
                   width: 64, height: 64, color: const Color(0xFFE0D4C8),
                   child: const Icon(Icons.book, color: Color(0xFF7A6B63)),
                 )),

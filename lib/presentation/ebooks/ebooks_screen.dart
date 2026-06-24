@@ -109,7 +109,7 @@ class _EBooksScreenState extends State<EBooksScreen> {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 20),
         itemCount: _categories.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           final isSelected = _selectedCategory == index;
           return GestureDetector(
@@ -165,7 +165,7 @@ class _EBooksScreenState extends State<EBooksScreen> {
                   book.coverAsset,
                   fit: BoxFit.cover,
                   width: double.infinity,
-                  errorBuilder: (_, __, ___) => Container(
+                  errorBuilder: (_, _, _) => Container(
                     color: const Color(0xFFE0D4C8),
                     child: const Icon(Icons.book, size: 40, color: Color(0xFF7A6B63)),
                   ),
