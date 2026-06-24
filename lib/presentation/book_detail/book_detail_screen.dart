@@ -1,438 +1,559 @@
-import 'dart:math' as math;
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import '../../theme.dart';
 import '../../data/models/book_model.dart';
 import '../../routes.dart';
 
-class BookDetailScreen extends StatelessWidget {
+class BookDetailScreen extends StatefulWidget {
   const BookDetailScreen({super.key, required this.book});
-
   final Book book;
+
+  @override
+  State<BookDetailScreen> createState() => _BookDetailScreenState();
+}
+
+class _BookDetailScreenState extends State<BookDetailScreen> {
+  bool _isBookmarked = false;
+  bool _descriptionExpanded = false;
+
+  static const _darkBrown = Color(0xFF1A0F0A);
+  static const _warmWhite = Color(0xFFF9F5EF);
+  static const _mutedText = Color(0xFF7A6B63);
+  static const _chocolateBrown = Color(0xFF5C3826);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.neutral,
+      backgroundColor: _warmWhite,
       body: Stack(
         children: [
-          // Speckled paper texture background
-          const Positioned.fill(
-            child: CustomPaint(painter: _SpeckPainter()),
+          // ── Main scrollable content ──────────────────────────────────
+          CustomScrollView(
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              SliverToBoxAdapter(child: _buildHeroHeader(context)),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(22, 0, 22, 100),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+                    _buildMetaRow(),
+                    const SizedBox(height: 28),
+                    _buildActionButtons(context),
+                    const SizedBox(height: 32),
+                    _buildSpecsRow(),
+                    const SizedBox(height: 32),
+                    _buildDescription(),
+                    const SizedBox(height: 28),
+                    _buildTagsRow(),
+                    const SizedBox(height: 32),
+                    _buildReviews(),
+                    const SizedBox(height: 20),
+                  ]),
+                ),
+              ),
+            ],
           ),
-          SafeArea(
-            child: Column(
-              children: [
-                _buildAppBar(context),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                    physics: const BouncingScrollPhysics(),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 16),
-                        _buildBookCover(),
-                        const SizedBox(height: 24),
-                        _buildBookTitle(),
-                        const SizedBox(height: 8),
-                        _buildRatingRow(),
-                        const SizedBox(height: 28),
-                        _buildActionsBar(context),
-                        const SizedBox(height: 32),
-                        _buildSpecsBar(),
-                        const SizedBox(height: 40),
-                        _buildAboutSection(),
-                        const SizedBox(height: 24),
-                        _buildTagsRow(),
-                        const SizedBox(height: 36),
-                        _buildReviewsSection(),
-                        const SizedBox(height: 48), // Padding at bottom
-                      ],
+        ],
+      ),
+    );
+  }
+
+  // ── HERO HEADER (Twitter/X profile layout) ───────────────────────────────────
+  Widget _buildHeroHeader(BuildContext context) {
+    const double bannerH = 215.0;
+    const double coverW = 116.0;
+    const double coverH = 170.0;
+    // How far the cover dips below the banner into the white strip
+    const double coverBelowBanner = 80.0;
+    // Top of cover relative to the Stack
+    const double coverTop = bannerH - coverH + coverBelowBanner; // = 125
+
+    return SizedBox(
+      height: bannerH + coverBelowBanner + 16,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          // ── Full-width blurred banner ─────────────────────────────────
+          Positioned(
+            top: 0, left: 0, right: 0,
+            child: SizedBox(
+              height: bannerH,
+              child: widget.book.coverAsset.isNotEmpty
+                  ? ImageFiltered(
+                      imageFilter: ImageFilter.blur(sigmaX: 32, sigmaY: 32),
+                      child: Image.asset(
+                        widget.book.coverAsset,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(color: _darkBrown),
+                      ),
+                    )
+                  : Container(color: _darkBrown),
+            ),
+          ),
+
+          // Dark overlay on banner so text is readable
+          Positioned(
+            top: 0, left: 0, right: 0,
+            child: Container(
+              height: bannerH,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    _darkBrown.withValues(alpha: 0.62),
+                    _darkBrown.withValues(alpha: 0.28),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // ── Warm-white strip below the banner ────────────────────────
+          Positioned(
+            top: bannerH, left: 0, right: 0, bottom: 0,
+            child: Container(color: _warmWhite),
+          ),
+
+          // ── Back (top-left) + Share (top-right) on banner ────────────
+          Positioned(
+            top: 0, left: 0, right: 0,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _navButton(icon: Icons.arrow_back_rounded, onTap: () => Navigator.pop(context)),
+                    _navButton(icon: Icons.share_outlined, onTap: () {}),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // ── Title + Author: right side of banner ──────────────────────
+          Positioned(
+            left: coverW + 36,
+            right: 16,
+            top: 64,
+            bottom: coverBelowBanner + 8,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.book.title,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontFamily: 'Literata',
+                      fontSize: 19,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      height: 1.2,
+                      shadows: [Shadow(color: Colors.black54, blurRadius: 10)],
                     ),
                   ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAppBar(BuildContext context) {
-    return Container(
-      height: 56,
-      padding: const EdgeInsets.symmetric(horizontal: 12.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF5C3826), size: 26),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-          IconButton(
-            icon: const Icon(Icons.share_rounded, color: Color(0xFF5C3826), size: 24),
-            onPressed: () {},
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBookCover() {
-    return Center(
-      child: Container(
-        height: 280,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: const [
-            BoxShadow(
-              color: Colors.black26,
-              blurRadius: 12,
-              offset: Offset(0, 6),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: Image.asset(
-            book.coverAsset,
-            fit: BoxFit.contain,
-            errorBuilder: (context, error, stackTrace) {
-              // Fallback if cover image asset not found
-              return Container(
-                width: 190,
-                height: 280,
-                color: const Color(0xFF37474F),
-                child: Center(
-                  child: Text(
-                    book.title,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                  const SizedBox(height: 7),
+                  Text(
+                    widget.book.author,
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white.withValues(alpha: 0.78),
+                      shadows: const [Shadow(color: Colors.black38, blurRadius: 6)],
+                    ),
                   ),
-                ),
-              );
-            },
+                ],
+              ),
+            ),
           ),
+
+          // ── Book cover overlapping the banner/white junction ──────────
+          Positioned(
+            top: coverTop,
+            left: 20,
+            child: Container(
+              width: coverW,
+              height: coverH,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _warmWhite, width: 3.5),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.38),
+                    blurRadius: 24,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(9),
+                child: widget.book.coverAsset.isNotEmpty
+                    ? Image.asset(
+                        widget.book.coverAsset,
+                        fit: BoxFit.cover,
+                        width: coverW,
+                        height: coverH,
+                        errorBuilder: (_, __, ___) => _fallbackCover(),
+                      )
+                    : _fallbackCover(),
+              ),
+            ),
+          ),
+
+          // ── Animated Save button: white strip, bottom-right ──────────
+          Positioned(
+            top: bannerH + (coverBelowBanner - 38) / 2,
+            right: 20,
+            child: GestureDetector(
+              onTap: () => setState(() => _isBookmarked = !_isBookmarked),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                decoration: BoxDecoration(
+                  color: _isBookmarked ? AppTheme.primary : Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: _isBookmarked ? AppTheme.primary : const Color(0xFFDDD4C4),
+                    width: 1.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.07),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _isBookmarked ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded,
+                      color: _isBookmarked ? Colors.white : _chocolateBrown,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      _isBookmarked ? 'Saved' : 'Save',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: _isBookmarked ? Colors.white : _chocolateBrown,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _fallbackCover() {
+    return Container(
+      width: 116,
+      height: 170,
+      color: const Color(0xFF2C3E50),
+      child: Center(
+        child: Text(
+          widget.book.title,
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: Colors.white, fontSize: 13, fontFamily: 'Inter'),
         ),
       ),
     );
   }
 
-  Widget _buildBookTitle() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Center(
-          child: Text(
-            book.title,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontFamily: 'Literata',
-              fontFamilyFallback: ['serif'],
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF5C3826),
-            ),
-          ),
+  Widget _navButton({required IconData icon, required VoidCallback onTap, bool filled = false}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: SizedBox(
+        width: 40,
+        height: 40,
+        child: Icon(
+          icon,
+          color: filled ? AppTheme.primary : Colors.white,
+          size: 24,
         ),
-        const SizedBox(height: 6),
-        Center(
-          child: Text(
-            book.author,
-            style: const TextStyle(
-              fontFamily: 'Literata',
-              fontFamilyFallback: ['serif'],
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-              color: Color(0xFF5C3826),
-            ),
-          ),
-        ),
-      ],
+      ),
     );
   }
 
-  Widget _buildRatingRow() {
+  // ── META ROW (rating + reviews) ──────────────────────────────────────────────
+  Widget _buildMetaRow() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // Stars
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: List.generate(5, (index) {
-            final starVal = index + 1;
-            if (book.rating >= starVal) {
-              return const Icon(Icons.star_rounded, color: Color(0xFFFBC02D), size: 18);
-            } else if (book.rating > index && book.rating < starVal) {
-              return const Icon(Icons.star_half_rounded, color: Color(0xFFFBC02D), size: 18);
-            } else {
-              return const Icon(Icons.star_outline_rounded, color: Color(0xFFFBC02D), size: 18);
-            }
-          }),
-        ),
-        const SizedBox(width: 8),
+        const Icon(Icons.star_rounded, color: Color(0xFFF4A836), size: 18),
+        const SizedBox(width: 5),
         Text(
-          '${book.rating} (${book.reviewCount})',
+          '${widget.book.rating}',
           style: const TextStyle(
             fontFamily: 'Inter',
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-            color: Color(0xFF7A6B63),
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+            color: _chocolateBrown,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          '(${widget.book.reviewCount} reviews)',
+          style: const TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 13,
+            color: _mutedText,
+          ),
+        ),
+        const SizedBox(width: 16),
+        Container(width: 1, height: 14, color: const Color(0xFFE2DDD5)),
+        const SizedBox(width: 16),
+        const Icon(Icons.language_rounded, color: _mutedText, size: 14),
+        const SizedBox(width: 4),
+        Text(
+          widget.book.language,
+          style: const TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 13,
+            color: _mutedText,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildActionsBar(BuildContext context) {
-    final borderStyle = OutlinedButton.styleFrom(
-      foregroundColor: const Color(0xFF5C3826),
-      side: const BorderSide(color: Color(0xFFE2DDD5), width: 1.5),
-      backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-      ),
-      elevation: 0,
-    );
-
-    return Row(
+  // ── CTA BUTTONS ──────────────────────────────────────────────────────────────
+  Widget _buildActionButtons(BuildContext context) {
+    return Column(
       children: [
-        Expanded(
-          child: SizedBox(
-            height: 60,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primary,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                elevation: 0,
-              ),
-              onPressed: () {
-                Navigator.of(context).pushNamed(AppRoutes.reader, arguments: book);
-              },
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
-                  Icon(Icons.menu_book_rounded, size: 20),
-                  SizedBox(height: 2),
-                  Text(
-                    'Read',
-                    style: TextStyle(fontFamily: 'Inter', fontSize: 11, fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: SizedBox(
-            height: 60,
-            child: OutlinedButton(
-              style: borderStyle,
-              onPressed: () {
-                Navigator.of(context).pushNamed(AppRoutes.player, arguments: book);
-              },
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
-                  Icon(Icons.headset_rounded, size: 20),
-                  SizedBox(height: 2),
-                  Text(
-                    'Listen',
-                    style: TextStyle(fontFamily: 'Inter', fontSize: 11, fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: SizedBox(
-            height: 60,
-            child: OutlinedButton(
-              style: borderStyle,
-              onPressed: () {},
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
-                  Icon(Icons.download_rounded, size: 20),
-                  SizedBox(height: 2),
-                  Text(
-                    'Get',
-                    style: TextStyle(fontFamily: 'Inter', fontSize: 11, fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSpecsBar() {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(vertical: 16.0),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF3EFE9),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildSpecCol('LENGTH', book.length),
-              _buildSpecDivider(),
-              _buildSpecCol('AUDIO', book.audioDuration),
-              _buildSpecDivider(),
-              _buildSpecCol('ENGLISH', book.language),
-            ],
-          ),
-        ),
-        Positioned(
-          bottom: -12,
-          right: 20,
+        // Primary Read button — full width
+        GestureDetector(
+          onTap: () => Navigator.pushNamed(context, AppRoutes.reader, arguments: widget.book),
           child: Container(
-            width: 44,
-            height: 44,
-            decoration: const BoxDecoration(
-              color: AppTheme.primary,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black12,
-                  blurRadius: 4,
-                  offset: Offset(0, 2),
+            height: 52,
+            decoration: BoxDecoration(
+              color: const Color(0xFF1A0F0A),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.menu_book_rounded, color: Colors.white, size: 18),
+                SizedBox(width: 10),
+                Text(
+                  'Read Now',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: Colors.white,
+                  ),
                 ),
               ],
             ),
-            child: const Icon(
-              Icons.bookmark_outline_rounded,
-              color: Colors.white,
-              size: 22,
-            ),
           ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            // Listen button
+            Expanded(
+              child: GestureDetector(
+                onTap: () => Navigator.pushNamed(context, AppRoutes.player, arguments: widget.book),
+                child: Container(
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFE8E0D4), width: 1.5),
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.headphones_rounded, color: _chocolateBrown, size: 17),
+                      SizedBox(width: 8),
+                      Text(
+                        'Listen',
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                          color: _chocolateBrown,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            // Download button
+            Expanded(
+              child: GestureDetector(
+                onTap: () {},
+                child: Container(
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFE8E0D4), width: 1.5),
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.download_rounded, color: _chocolateBrown, size: 17),
+                      SizedBox(width: 8),
+                      Text(
+                        'Save',
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                          color: _chocolateBrown,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );
   }
 
-  Widget _buildSpecCol(String label, String value) {
+  // ── SPECS ROW ────────────────────────────────────────────────────────────────
+  Widget _buildSpecsRow() {
+    final specs = [
+      _Spec(icon: Icons.import_contacts_rounded, label: 'Pages', value: widget.book.length),
+      _Spec(icon: Icons.headphones_rounded, label: 'Audio', value: widget.book.audioDuration),
+      _Spec(icon: Icons.translate_rounded, label: 'Language', value: widget.book.language),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 18),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3EDE3),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          for (int i = 0; i < specs.length; i++) ...[
+            if (i > 0) Container(width: 1, height: 32, color: const Color(0xFFE0D4C4)),
+            _buildSpecItem(specs[i]),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSpecItem(_Spec spec) {
     return Column(
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontFamily: 'Inter',
-            fontSize: 9,
-            fontWeight: FontWeight.w800,
-            color: Color(0xFF9C8F84),
-            letterSpacing: 1.0,
-          ),
-        ),
+        Icon(spec.icon, color: AppTheme.primary, size: 20),
         const SizedBox(height: 6),
         Text(
-          value,
+          spec.value,
           style: const TextStyle(
-            fontFamily: 'Literata',
-            fontFamilyFallback: ['serif'],
-            fontSize: 14,
+            fontFamily: 'Inter',
+            fontSize: 13,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF5C3826),
+            color: _chocolateBrown,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          spec.label,
+          style: const TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 10,
+            color: _mutedText,
+            letterSpacing: 0.4,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildSpecDivider() {
-    return Container(
-      width: 1.5,
-      height: 24,
-      color: const Color(0xFFE2DDD5),
-    );
-  }
+  // ── DESCRIPTION ──────────────────────────────────────────────────────────────
+  Widget _buildDescription() {
+    const maxLength = 180;
+    final isLong = widget.book.description.length > maxLength;
+    final displayText = (!_descriptionExpanded && isLong)
+        ? '${widget.book.description.substring(0, maxLength)}…'
+        : widget.book.description;
 
-  Widget _buildAboutSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'About this book',
+          'About',
           style: TextStyle(
             fontFamily: 'Literata',
-            fontFamilyFallback: ['serif'],
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF5C3826),
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: _chocolateBrown,
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
         Text(
-          book.description,
+          displayText,
           style: const TextStyle(
             fontFamily: 'Inter',
-            fontSize: 13.5,
-            color: Color(0xFF7A6B63),
-            height: 1.6,
+            fontSize: 14,
+            color: _mutedText,
+            height: 1.65,
           ),
         ),
-        const SizedBox(height: 8),
-        TextButton(
-          onPressed: () {},
-          style: TextButton.styleFrom(
-            padding: EdgeInsets.zero,
-            minimumSize: Size.zero,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'READ MORE',
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 11,
-                  fontWeight: FontWeight.w900,
-                  color: AppTheme.primary,
-                  letterSpacing: 0.5,
-                ),
+        if (isLong) ...[
+          const SizedBox(height: 6),
+          GestureDetector(
+            onTap: () => setState(() => _descriptionExpanded = !_descriptionExpanded),
+            child: Text(
+              _descriptionExpanded ? 'Show less' : 'Read more',
+              style: const TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.primary,
               ),
-              const SizedBox(width: 4),
-              Icon(Icons.chevron_right_rounded, color: AppTheme.primary, size: 14),
-            ],
+            ),
           ),
-        ),
+        ],
       ],
     );
   }
 
+  // ── TAGS ─────────────────────────────────────────────────────────────────────
   Widget _buildTagsRow() {
     return Wrap(
       spacing: 8,
       runSpacing: 8,
-      children: book.tags.map((tag) {
+      children: widget.book.tags.map((tag) {
         return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
           decoration: BoxDecoration(
             color: Color(tag.backgroundColorValue),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(20),
           ),
           child: Text(
-            tag.text.toUpperCase(),
+            tag.text,
             style: TextStyle(
               fontFamily: 'Inter',
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
               color: Color(tag.textColorValue),
-              letterSpacing: 0.5,
             ),
           ),
         );
@@ -440,7 +561,8 @@ class BookDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildReviewsSection() {
+  // ── REVIEWS ──────────────────────────────────────────────────────────────────
+  Widget _buildReviews() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -448,93 +570,96 @@ class BookDetailScreen extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             const Text(
-              'Community Reviews',
+              'Reviews',
               style: TextStyle(
                 fontFamily: 'Literata',
-                fontFamilyFallback: ['serif'],
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF5C3826),
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: _chocolateBrown,
               ),
             ),
             TextButton(
               onPressed: () {},
+              style: TextButton.styleFrom(padding: EdgeInsets.zero),
               child: const Text(
                 'See all',
                 style: TextStyle(
                   fontFamily: 'Inter',
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF7A6B63),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: _mutedText,
                 ),
               ),
             ),
           ],
         ),
         const SizedBox(height: 12),
-        ...book.reviews.map((review) => _buildReviewCard(review)),
+        ...widget.book.reviews.map((r) => _buildReviewCard(r)),
       ],
     );
   }
 
   Widget _buildReviewCard(BookReview review) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 8,
-            offset: Offset(0, 3),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFF0E8DC), width: 1.2),
       ),
-      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              CircleAvatar(
-                radius: 16,
-                backgroundColor: const Color(0xFFF3EFE9),
+              // Avatar circle with initial
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppTheme.primary.withValues(alpha: 0.1),
+                ),
+                alignment: Alignment.center,
                 child: Text(
                   review.reviewerName.substring(0, 1),
                   style: const TextStyle(
                     fontFamily: 'Inter',
-                    fontSize: 12,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF5C3826),
+                    fontSize: 15,
+                    color: AppTheme.primary,
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    review.reviewerName,
-                    style: const TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF5C3826),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      review.reviewerName,
+                      style: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: _chocolateBrown,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: List.generate(5, (index) {
-                      return Icon(
-                        Icons.star_rounded,
-                        color: index < review.rating ? const Color(0xFFFBC02D) : const Color(0xFFE0E0E0),
-                        size: 14,
-                      );
-                    }),
-                  ),
-                ],
+                    const SizedBox(height: 3),
+                    Row(
+                      children: List.generate(5, (i) {
+                        return Icon(
+                          Icons.star_rounded,
+                          size: 12,
+                          color: i < review.rating
+                              ? const Color(0xFFF4A836)
+                              : const Color(0xFFE0D5C8),
+                        );
+                      }),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -542,12 +667,10 @@ class BookDetailScreen extends StatelessWidget {
           Text(
             review.comment,
             style: const TextStyle(
-              fontFamily: 'Literata',
-              fontFamilyFallback: ['serif'],
-              fontStyle: FontStyle.italic,
+              fontFamily: 'Inter',
               fontSize: 13,
-              color: Color(0xFF7A6B63),
-              height: 1.5,
+              color: _mutedText,
+              height: 1.55,
             ),
           ),
         ],
@@ -556,23 +679,9 @@ class BookDetailScreen extends StatelessWidget {
   }
 }
 
-class _SpeckPainter extends CustomPainter {
-  const _SpeckPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rng = math.Random(42);
-    final paint = Paint()..color = AppTheme.secondary.withValues(alpha: 0.05);
-
-    const speckCount = 90;
-    for (var i = 0; i < speckCount; i++) {
-      final dx = rng.nextDouble() * size.width;
-      final dy = rng.nextDouble() * size.height;
-      final r = rng.nextDouble() * 1.1 + 0.3;
-      canvas.drawCircle(Offset(dx, dy), r, paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _SpeckPainter oldDelegate) => false;
+class _Spec {
+  final IconData icon;
+  final String label;
+  final String value;
+  _Spec({required this.icon, required this.label, required this.value});
 }
