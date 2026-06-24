@@ -1,0 +1,14 @@
+🚀 Building a Premium Book App in Flutter! 📚✨
+
+Here is a quick look at PageTurn, a book app concept I've been developing. I wanted to design a cozy, bookish aesthetic with ultra-smooth modern mobile UX. 
+
+🔥 Key Features Shown in the Video:
+1. Cozy splash screen with Lottie book-flipping animation.
+2. Premium onboarding pages featuring custom waveform animations & badges.
+3. SUSPENDED glassmorphic floating bottom navbar (Telegram UX-inspired) with BackdropFilter blur so the home page scrolls completely behind it.
+4. Rich Home Page layout: "Book of the Day", continue-reading progress indicator, trending sliders, and curated spotlights.
+5. Reusable Book Detail Widget: Large cover layout, specs row, overlay floating bookmark badge, category tags, and italicized community review cards.
+
+💻 Built with: Flutter & Dart (Vanilla CSS styled theme colors)
+
+#flutter #flutterdeveloper #mobileapp #developer #programming #coding #uidesign #appdeveloper #iosdevelopment #androiddevelopment #codetok #coder #buildinpublic #pageturn
