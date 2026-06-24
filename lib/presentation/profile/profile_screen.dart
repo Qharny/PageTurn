@@ -726,17 +726,71 @@ class _ProfileScreenState extends State<ProfileScreen>
   // ─── BADGES TAB ───────────────────────────────────────────────────────────
   Widget _buildBadgesTab() {
     final earned = [
-      _Badge(icon: '📚', label: 'Bookworm', sub: '10 books read', color: const Color(0xFFFFF3E0)),
-      _Badge(icon: '🔥', label: 'On Fire', sub: '7-day streak', color: const Color(0xFFFFEBEA)),
-      _Badge(icon: '🌙', label: 'Night Owl', sub: 'Read after midnight', color: const Color(0xFFEDE7F6)),
-      _Badge(icon: '🎧', label: 'Listener', sub: '50h of audio', color: const Color(0xFFE3F2FD)),
-      _Badge(icon: '👑', label: 'Gold Member', sub: 'Premium subscriber', color: const Color(0xFFFFF8E1)),
-      _Badge(icon: '🌍', label: 'Globe Trotter', sub: '5 genres explored', color: const Color(0xFFE8F5E9)),
+      _Badge(
+        icon: Icons.menu_book_rounded,
+        label: 'Bookworm',
+        sub: '10 books read',
+        color: const Color(0xFFFFF3E0),
+        iconColor: const Color(0xFFE65100),
+      ),
+      _Badge(
+        icon: Icons.local_fire_department_rounded,
+        label: 'On Fire',
+        sub: '7-day streak',
+        color: const Color(0xFFFFEBEA),
+        iconColor: const Color(0xFFC62828),
+      ),
+      _Badge(
+        icon: Icons.nightlight_rounded,
+        label: 'Night Owl',
+        sub: 'Read after midnight',
+        color: const Color(0xFFEDE7F6),
+        iconColor: const Color(0xFF4527A0),
+      ),
+      _Badge(
+        icon: Icons.headphones_rounded,
+        label: 'Listener',
+        sub: '50h of audio',
+        color: const Color(0xFFE3F2FD),
+        iconColor: const Color(0xFF1565C0),
+      ),
+      _Badge(
+        icon: Icons.workspace_premium_rounded,
+        label: 'Gold Member',
+        sub: 'Premium subscriber',
+        color: const Color(0xFFFFF8E1),
+        iconColor: const Color(0xFFF57F17),
+      ),
+      _Badge(
+        icon: Icons.public_rounded,
+        label: 'Globe Trotter',
+        sub: '5 genres explored',
+        color: const Color(0xFFE8F5E9),
+        iconColor: const Color(0xFF2E7D32),
+      ),
     ];
     final locked = [
-      _Badge(icon: '💎', label: 'Diamond Reader', sub: '100 books read', color: const Color(0xFFECEFF1)),
-      _Badge(icon: '⚡', label: 'Speed Reader', sub: 'Finish in one sitting', color: const Color(0xFFECEFF1)),
-      _Badge(icon: '🏆', label: 'Champion', sub: 'Annual goal complete', color: const Color(0xFFECEFF1)),
+      _Badge(
+        icon: Icons.diamond_rounded,
+        label: 'Diamond Reader',
+        sub: '100 books read',
+        color: const Color(0xFFECEFF1),
+        iconColor: const Color(0xFF006064),
+      ),
+      _Badge(
+        icon: Icons.bolt_rounded,
+        label: 'Speed Reader',
+        sub: 'Finish in one sitting',
+        color: const Color(0xFFECEFF1),
+        iconColor: const Color(0xFFE65100),
+      ),
+      _Badge(
+        icon: Icons.emoji_events_rounded,
+        label: 'Champion',
+        sub: 'Annual goal complete',
+        color: const Color(0xFFECEFF1),
+        iconColor: const Color(0xFFC62828),
+      ),
     ];
 
     return SingleChildScrollView(
@@ -794,7 +848,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         children: [
           locked
               ? const Icon(Icons.lock_rounded, size: 28, color: Color(0xFFBBAFA8))
-              : Text(badge.icon, style: const TextStyle(fontSize: 28)),
+              : Icon(badge.icon, size: 28, color: badge.iconColor),
           const SizedBox(height: 8),
           Text(
             badge.label,
@@ -843,9 +897,16 @@ class _Activity {
 }
 
 class _Badge {
-  final String icon;
+  final IconData icon;
   final String label;
   final String sub;
   final Color color;
-  _Badge({required this.icon, required this.label, required this.sub, required this.color});
+  final Color iconColor;
+  _Badge({
+    required this.icon,
+    required this.label,
+    required this.sub,
+    required this.color,
+    required this.iconColor,
+  });
 }
