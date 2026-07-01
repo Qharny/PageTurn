@@ -4,6 +4,8 @@ import '../../data/models/book_model.dart';
 import '../../theme.dart';
 import '../../routes.dart';
 import '../home/mock_books.dart';
+import '../reading_clubs/reading_club_provider.dart';
+import '../reading_clubs/club_detail_screen.dart';
 
 const Book mockGildedSpine = Book(
   id: 'gilded_spine',
@@ -63,30 +65,9 @@ class ExploreScreen extends StatefulWidget {
 }
 
 class _ExploreScreenState extends State<ExploreScreen> {
-  final Set<String> _joinedClubs = {};
-  late final List<_ReadingClubItem> _clubs;
-
   @override
   void initState() {
     super.initState();
-    _clubs = [
-      _ReadingClubItem(
-        id: 'classics',
-        title: 'The Classics Circle',
-        memberCount: 12400,
-        icon: Icons.menu_book_rounded,
-        iconColor: const Color(0xFF2D6A4F),
-        bgColor: const Color(0xFFE8F0EC),
-      ),
-      _ReadingClubItem(
-        id: 'afrofuturism',
-        title: 'Afrofuturism Hub',
-        memberCount: 8900,
-        icon: Icons.rocket_launch_rounded,
-        iconColor: const Color(0xFFD97706),
-        bgColor: const Color(0xFFFDF0E9),
-      ),
-    ];
   }
 
   @override
@@ -374,124 +355,138 @@ class _ExploreScreenState extends State<ExploreScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Reading Clubs',
-          style: TextStyle(
-            fontFamily: 'Literata',
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF1E1E1E),
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Reading Clubs',
+              style: TextStyle(
+                fontFamily: 'Literata',
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1E1E1E),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pushNamed(context, AppRoutes.readingClubs),
+              child: const Text('See All', style: TextStyle(fontFamily: 'Inter', color: AppTheme.primary, fontWeight: FontWeight.bold)),
+            ),
+          ],
         ),
         const SizedBox(height: 12),
-        ..._clubs.map((club) {
-          final isJoined = _joinedClubs.contains(club.id);
-          return Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFF2ECE4), width: 1.2),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.02),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: club.bgColor,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  alignment: Alignment.center,
-                  child: Icon(
-                    club.icon,
-                    color: club.iconColor,
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        club.title,
-                        style: const TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1E1E1E),
-                        ),
+        ListenableBuilder(
+          listenable: ReadingClubProvider.instance,
+          builder: (context, child) {
+            final clubs = ReadingClubProvider.instance.clubs.take(2).toList();
+            return Column(
+              children: clubs.map((club) {
+                final isJoined = ReadingClubProvider.instance.isJoined(club.id);
+                return GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ReadingClubDetailScreen(club: club),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _formatMemberCount(club.memberCount),
-                        style: const TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 12,
-                          color: Color(0xFF7A6B63),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      if (isJoined) {
-                        _joinedClubs.remove(club.id);
-                        club.memberCount--;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Left ${club.title}'),
-                            behavior: SnackBarBehavior.floating,
-                            duration: const Duration(seconds: 2),
-                          ),
-                        );
-                      } else {
-                        _joinedClubs.add(club.id);
-                        club.memberCount++;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Joined ${club.title}! 🎉'),
-                            behavior: SnackBarBehavior.floating,
-                            duration: const Duration(seconds: 2),
-                          ),
-                        );
-                      }
-                    });
+                    );
                   },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: isJoined ? const Color(0xFFF2ECE4) : const Color(0xFF8C481A),
-                    foregroundColor: isJoined ? const Color(0xFF8C481A) : Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: isJoined ? const BorderSide(color: Color(0xFFD8D3C8), width: 1) : BorderSide.none,
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFFF2ECE4), width: 1.2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.02),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                  ),
-                  child: Text(
-                    isJoined ? 'Joined' : 'Join',
-                    style: const TextStyle(
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: club.bgColor,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          alignment: Alignment.center,
+                          child: Icon(
+                            club.icon,
+                            color: club.iconColor,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                club.name,
+                                style: const TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF1E1E1E),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                _formatMemberCount(club.memberCount),
+                                style: const TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 12,
+                                  color: Color(0xFF7A6B63),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        ElevatedButton(
+                          onPressed: () {
+                            ReadingClubProvider.instance.toggleJoin(club.id);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  isJoined ? "Left ${club.name}" : "Joined ${club.name}! 🎉",
+                                ),
+                                behavior: SnackBarBehavior.floating,
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: isJoined ? const Color(0xFFF2ECE4) : const Color(0xFF8C481A),
+                            foregroundColor: isJoined ? const Color(0xFF8C481A) : Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: isJoined ? const BorderSide(color: Color(0xFFD8D3C8), width: 1) : BorderSide.none,
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                          ),
+                          child: Text(
+                            isJoined ? 'Joined' : 'Join',
+                            style: const TextStyle(
+                              fontFamily: 'Inter',
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-              ],
-            ),
-          );
-        }),
+                );
+              }).toList(),
+            );
+          },
+        ),
       ],
     );
   }
@@ -724,20 +719,4 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 }
 
-class _ReadingClubItem {
-  final String id;
-  final String title;
-  int memberCount;
-  final IconData icon;
-  final Color iconColor;
-  final Color bgColor;
 
-  _ReadingClubItem({
-    required this.id,
-    required this.title,
-    required this.memberCount,
-    required this.icon,
-    required this.iconColor,
-    required this.bgColor,
-  });
-}

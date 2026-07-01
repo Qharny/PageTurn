@@ -5,6 +5,7 @@ import '../../theme.dart';
 import '../../routes.dart';
 import '../../data/models/book_model.dart';
 import 'mock_books.dart';
+import '../common/widgets/book_cover.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -202,12 +203,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ],
                 ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.asset(
-                    book.coverAsset,
-                    fit: BoxFit.contain,
-                  ),
+                child: BookCover(
+                  coverAsset: book.coverAsset,
+                  title: book.title,
+                  fit: BoxFit.contain,
+                  borderRadius: 12,
                 ),
               ),
             ),
@@ -421,9 +421,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ],
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.asset(book.coverAsset, fit: BoxFit.cover),
+              child: BookCover(
+                coverAsset: book.coverAsset,
+                title: book.title,
+                fit: BoxFit.cover,
+                borderRadius: 8,
               ),
             ),
             const SizedBox(width: 12),
@@ -618,9 +620,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ],
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.asset(book.coverAsset, fit: BoxFit.cover),
+              child: BookCover(
+                coverAsset: book.coverAsset,
+                title: book.title,
+                fit: BoxFit.cover,
+                borderRadius: 12,
               ),
             ),
             const SizedBox(height: 8),
@@ -823,9 +827,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ],
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.asset(book.coverAsset, fit: BoxFit.cover),
+              child: BookCover(
+                coverAsset: book.coverAsset,
+                title: book.title,
+                fit: BoxFit.cover,
+                borderRadius: 8,
               ),
             ),
             const SizedBox(width: 16),
