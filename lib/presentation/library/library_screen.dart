@@ -12,8 +12,7 @@ class LibraryScreen extends StatefulWidget {
   State<LibraryScreen> createState() => _LibraryScreenState();
 }
 
-class _LibraryScreenState extends State<LibraryScreen> {
-  int _selectedTab = 0; // 0: All, 1: Reading, 2: Finished, 3: Want to Read
+class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProviderStateMixin {
   bool _isGridView = true;
   String _searchQuery = '';
 
@@ -27,17 +26,31 @@ class _LibraryScreenState extends State<LibraryScreen> {
     MockBooks.greatGatsby,
   ];
 
-  List<Book> get _filteredBooks {
+  late final TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: _tabs.length, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  List<Book> _getBooksForTab(int tabIndex) {
     var list = _libraryBooks;
 
     // Filter by Tab
-    if (_selectedTab == 1) {
+    if (tabIndex == 1) {
       // Reading
       list = list.where((b) => b.progress != null && b.progress! > 0).toList();
-    } else if (_selectedTab == 2) {
+    } else if (tabIndex == 2) {
       // Finished
       list = list.where((b) => b.isFinished == true).toList();
-    } else if (_selectedTab == 3) {
+    } else if (tabIndex == 3) {
       // Want to Read
       list = list.where((b) => b.isFinished != true && (b.progress == null || b.progress == 0)).toList();
     }
@@ -54,10 +67,21 @@ class _LibraryScreenState extends State<LibraryScreen> {
     return list;
   }
 
+  Widget _buildTabPage(int tabIndex) {
+    final books = _getBooksForTab(tabIndex);
+    return books.isEmpty
+        ? _buildEmptyState()
+        : SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
+            physics: const BouncingScrollPhysics(),
+            child: _isGridView
+                ? _buildGridView(books)
+                : _buildListView(books),
+          );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final filtered = _filteredBooks;
-
     return Scaffold(
       backgroundColor: AppTheme.neutral,
       body: Stack(
@@ -97,15 +121,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 _buildTabsBar(),
                 const SizedBox(height: 16),
                 Expanded(
-                  child: filtered.isEmpty
-                      ? _buildEmptyState()
-                      : SingleChildScrollView(
-                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-                          physics: const BouncingScrollPhysics(),
-                          child: _isGridView
-                              ? _buildGridView(filtered)
-                              : _buildListView(filtered),
-                        ),
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: List.generate(_tabs.length, (index) => _buildTabPage(index)),
+                  ),
                 ),
               ],
             ),
@@ -257,45 +276,30 @@ class _LibraryScreenState extends State<LibraryScreen> {
   Widget _buildTabsBar() {
     return SizedBox(
       height: 38,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: _tabs.length,
+      child: TabBar(
+        controller: _tabController,
+        isScrollable: true,
+        tabAlignment: TabAlignment.start,
+        dividerColor: Colors.transparent,
+        labelColor: const Color(0xFF5C3826),
+        unselectedLabelColor: const Color(0xFF9C8F84),
+        labelStyle: const TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 14,
+          fontWeight: FontWeight.bold,
+        ),
+        unselectedLabelStyle: const TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 14,
+          fontWeight: FontWeight.normal,
+        ),
+        indicator: const _FixedUnderlineTabIndicator(
+          borderSide: BorderSide(width: 3.0, color: Color(0xFFD35400)),
+          width: 24.0,
+        ),
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        physics: const BouncingScrollPhysics(),
-        itemBuilder: (context, index) {
-          final isSelected = _selectedTab == index;
-          return GestureDetector(
-            onTap: () => setState(() => _selectedTab = index),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    _tabs[index],
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 14,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                      color: isSelected ? const Color(0xFF5C3826) : const Color(0xFF9C8F84),
-                    ),
-                  ),
-                  if (isSelected) ...[
-                    const SizedBox(height: 6),
-                    Container(
-                      height: 3,
-                      width: 24,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFD35400),
-                        borderRadius: BorderRadius.circular(1.5),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          );
-        },
+        labelPadding: const EdgeInsets.symmetric(horizontal: 12.0),
+        tabs: _tabs.map((tab) => Tab(text: tab, height: 38)).toList(),
       ),
     );
   }
@@ -599,4 +603,38 @@ class _SpeckPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _SpeckPainter oldDelegate) => false;
+}
+
+class _FixedUnderlineTabIndicator extends Decoration {
+  final BorderSide borderSide;
+  final double width;
+
+  const _FixedUnderlineTabIndicator({
+    required this.borderSide,
+    required this.width,
+  });
+
+  @override
+  BoxPainter createBoxPainter([VoidCallback? onChanged]) {
+    return _FixedUnderlinePainter(this, onChanged);
+  }
+}
+
+class _FixedUnderlinePainter extends BoxPainter {
+  final _FixedUnderlineTabIndicator decoration;
+
+  _FixedUnderlinePainter(this.decoration, VoidCallback? onChanged) : super(onChanged);
+
+  @override
+  void paint(Canvas canvas, Offset offset, ImageConfiguration configuration) {
+    final rect = offset & configuration.size!;
+    final paint = decoration.borderSide.toPaint()..strokeCap = StrokeCap.round;
+    final double xCenter = rect.left + rect.width / 2;
+    final double yPos = rect.bottom - decoration.borderSide.width / 2 - 3.0;
+    canvas.drawLine(
+      Offset(xCenter - decoration.width / 2, yPos),
+      Offset(xCenter + decoration.width / 2, yPos),
+      paint,
+    );
+  }
 }

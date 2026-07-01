@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../theme.dart';
+import '../profile/profile_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -17,9 +18,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _selectedLanguage = 'English';
 
   @override
+  void initState() {
+    super.initState();
+    _darkMode = themeNotifier.value == ThemeMode.dark;
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.neutral,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -34,8 +41,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const SizedBox(height: 8),
                     _buildSectionTitle('Appearance'),
                     _buildSettingsCard([
-                      _buildToggleRow('Dark Mode', 'Switch to a darker reading theme', Icons.dark_mode_rounded, _darkMode,
-                          (v) => setState(() => _darkMode = v)),
+                      _buildToggleRow(
+                        'Dark Mode',
+                        'Switch to a darker reading theme',
+                        Icons.dark_mode_rounded,
+                        _darkMode,
+                        (v) {
+                          setState(() => _darkMode = v);
+                          themeNotifier.value = v ? ThemeMode.dark : ThemeMode.light;
+                        },
+                      ),
                       _buildDivider(),
                       _buildSliderRow(),
                     ]),
@@ -62,7 +77,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const SizedBox(height: 24),
                     _buildSectionTitle('Account'),
                     _buildSettingsCard([
-                      _buildActionRow('Edit Profile', Icons.person_outline_rounded),
+                      _buildActionRow(
+                        'Edit Profile',
+                        Icons.person_outline_rounded,
+                        onTap: () => _showEditProfileSheet(context),
+                      ),
                       _buildDivider(),
                       _buildActionRow('Change Password', Icons.lock_outline_rounded),
                       _buildDivider(),
@@ -91,21 +110,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFF2ECE4), width: 1.2),
+                border: Border.all(color: Theme.of(context).dividerColor.withValues(alpha: 0.1), width: 1.2),
               ),
-              child: const Icon(Icons.arrow_back_rounded, color: Color(0xFF5C3826), size: 20),
+              child: Icon(Icons.arrow_back_rounded, color: Theme.of(context).colorScheme.onSurface, size: 20),
             ),
           ),
           const SizedBox(width: 16),
-          const Text(
+          Text(
             'Settings',
             style: TextStyle(
               fontFamily: 'Literata',
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF5C3826),
+              color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
         ],
@@ -132,9 +151,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildSettingsCard(List<Widget> children) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFF2ECE4), width: 1.2),
+        border: Border.all(color: Theme.of(context).dividerColor.withValues(alpha: 0.1), width: 1.2),
       ),
       child: Column(children: children),
     );
@@ -159,7 +178,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontFamily: 'Inter', fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF1E1E1E))),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
                 Text(subtitle, style: const TextStyle(fontFamily: 'Inter', fontSize: 11, color: Color(0xFF7A6B63))),
               ],
             ),
@@ -197,7 +224,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Font Size', style: TextStyle(fontFamily: 'Inter', fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF1E1E1E))),
+                    Text(
+                      'Font Size',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
                     Text('${_fontSize.round()}px', style: const TextStyle(fontFamily: 'Inter', fontSize: 11, color: Color(0xFF7A6B63))),
                   ],
                 ),
@@ -233,12 +268,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: const Icon(Icons.language_rounded, color: AppTheme.primary, size: 18),
           ),
           const SizedBox(width: 14),
-          const Text('Language', style: TextStyle(fontFamily: 'Inter', fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF1E1E1E))),
+          Text(
+            'Language',
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
+          ),
           const Spacer(),
           DropdownButton<String>(
             value: _selectedLanguage,
             underline: const SizedBox(),
-            style: const TextStyle(fontFamily: 'Inter', fontSize: 14, color: Color(0xFF5C3826), fontWeight: FontWeight.w600),
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 14,
+              color: Theme.of(context).colorScheme.primary,
+              fontWeight: FontWeight.w600,
+            ),
+            dropdownColor: Theme.of(context).colorScheme.surface,
             items: ['English', 'French', 'Spanish', 'Swahili']
                 .map((l) => DropdownMenuItem(value: l, child: Text(l)))
                 .toList(),
@@ -249,9 +298,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildActionRow(String title, IconData icon, {bool isDestructive = false}) {
+  Widget _buildActionRow(String title, IconData icon, {bool isDestructive = false, VoidCallback? onTap}) {
     return InkWell(
-      onTap: () {},
+      onTap: onTap,
       borderRadius: BorderRadius.circular(16),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -273,7 +322,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 fontFamily: 'Inter',
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
-                color: isDestructive ? Colors.red : const Color(0xFF1E1E1E),
+                color: isDestructive ? Colors.red : Theme.of(context).colorScheme.onSurface,
               ),
             ),
             const Spacer(),
@@ -285,6 +334,99 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildDivider() {
-    return const Divider(indent: 66, endIndent: 16, color: Color(0xFFF2ECE4), height: 1);
+    return Divider(indent: 66, endIndent: 16, color: Theme.of(context).dividerColor.withValues(alpha: 0.1), height: 1);
+  }
+
+  void _showEditProfileSheet(BuildContext context) {
+    final nameController = TextEditingController(text: ProfileProvider.instance.name);
+    final bioController = TextEditingController(text: ProfileProvider.instance.bio);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(context).viewInsets.bottom + 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Edit Profile',
+                style: TextStyle(
+                  fontFamily: 'Literata',
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: nameController,
+                decoration: InputDecoration(
+                  labelText: 'Name',
+                  labelStyle: const TextStyle(color: Color(0xFF7A6B63)),
+                  focusedBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
+                  ),
+                ),
+                style: TextStyle(fontFamily: 'Inter', color: Theme.of(context).colorScheme.onSurface),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: bioController,
+                decoration: InputDecoration(
+                  labelText: 'Bio / Tagline',
+                  labelStyle: const TextStyle(color: Color(0xFF7A6B63)),
+                  focusedBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
+                  ),
+                ),
+                maxLines: 2,
+                style: TextStyle(fontFamily: 'Inter', color: Theme.of(context).colorScheme.onSurface),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: () {
+                    ProfileProvider.instance.updateProfile(
+                      name: nameController.text.trim(),
+                      bio: bioController.text.trim(),
+                    );
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Profile updated successfully!'),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF8C481A),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Save Changes',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 }

@@ -1,12 +1,81 @@
 import 'dart:math' as math;
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../theme.dart';
 import '../../routes.dart';
 import '../../data/models/book_model.dart';
 import 'mock_books.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  Timer? _timer;
+  String _remainingTime = '12h 00m 00s';
+
+  static const List<Book> _allBooks = [
+    MockBooks.echoOfStarlight,
+    MockBooks.midnightLibrary,
+    MockBooks.becoming,
+    MockBooks.circe,
+    MockBooks.alchemist,
+    MockBooks.projectHailMary,
+    MockBooks.homegoing,
+    MockBooks.thingsFallApart,
+    MockBooks.thinkingFastSlow,
+    MockBooks.educated,
+    MockBooks.normalPeople,
+    MockBooks.klaraSun,
+    MockBooks.dune,
+    MockBooks.atomicHabits,
+    MockBooks.greatGatsby,
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _updateRemainingTime();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      _updateRemainingTime();
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _updateRemainingTime() {
+    final nowMs = DateTime.now().toUtc().millisecondsSinceEpoch;
+    const twelveHoursMs = 12 * 60 * 60 * 1000;
+    final nextBoundaryMs = ((nowMs ~/ twelveHoursMs) + 1) * twelveHoursMs;
+    final difference = nextBoundaryMs - nowMs;
+    
+    if (difference <= 0) {
+      _remainingTime = '00h 00m 00s';
+    } else {
+      final duration = Duration(milliseconds: difference);
+      final hours = duration.inHours.toString().padLeft(2, '0');
+      final minutes = (duration.inMinutes % 60).toString().padLeft(2, '0');
+      final seconds = (duration.inSeconds % 60).toString().padLeft(2, '0');
+      setState(() {
+        _remainingTime = '${hours}h ${minutes}m ${seconds}s';
+      });
+    }
+  }
+
+  Book _getBookOfTheDay() {
+    final nowMs = DateTime.now().toUtc().millisecondsSinceEpoch;
+    const twelveHoursMs = 12 * 60 * 60 * 1000;
+    final period = nowMs ~/ twelveHoursMs;
+    final index = period % _allBooks.length;
+    return _allBooks[index];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -99,7 +168,7 @@ class HomeScreen extends StatelessWidget {
   }
 
   Widget _buildBookOfTheDay(BuildContext context) {
-    final book = MockBooks.midnightLibrary;
+    final book = _getBookOfTheDay();
     return GestureDetector(
       onTap: () {
         Navigator.of(context).pushNamed(AppRoutes.details, arguments: book);
@@ -143,15 +212,43 @@ class HomeScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-            Text(
-              'BOOK OF THE DAY',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 10,
-                fontWeight: FontWeight.w800,
-                color: AppTheme.primary,
-                letterSpacing: 1.5,
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'BOOK OF THE DAY',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.primary,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.timer_outlined, size: 12, color: AppTheme.primary),
+                      const SizedBox(width: 4),
+                      Text(
+                        _remainingTime,
+                        style: const TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 8),
             Text(

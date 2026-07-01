@@ -28,6 +28,10 @@ class _ReadAlongScreenState extends State<ReadAlongScreen> with SingleTickerProv
     'CHAPTER 5: REUNION',
   ];
 
+  bool _isFlippingMode = true;
+  late final PageController _pageController;
+  double _pageValue = 0.0;
+
   @override
   void initState() {
     super.initState();
@@ -35,11 +39,18 @@ class _ReadAlongScreenState extends State<ReadAlongScreen> with SingleTickerProv
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     );
+    _pageController = PageController();
+    _pageController.addListener(() {
+      setState(() {
+        _pageValue = _pageController.page ?? 0.0;
+      });
+    });
   }
 
   @override
   void dispose() {
     _waveController.dispose();
+    _pageController.dispose();
     super.dispose();
   }
 
@@ -174,6 +185,33 @@ class _ReadAlongScreenState extends State<ReadAlongScreen> with SingleTickerProv
                 title: const Text('Background Theme', style: TextStyle(fontFamily: 'Inter')),
                 trailing: const Text('Warm Paper', style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.bold, color: Color(0xFFD35400))),
               ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.menu_book_rounded, color: Color(0xFF5C3826)),
+                title: const Text('Transition Style', style: TextStyle(fontFamily: 'Inter')),
+                trailing: DropdownButton<bool>(
+                  value: _isFlippingMode,
+                  underline: const SizedBox(),
+                  icon: const Icon(Icons.arrow_drop_down_rounded, color: Color(0xFFD35400)),
+                  style: const TextStyle(
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFFD35400),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: false, child: Text('Vertical Scroll')),
+                    DropdownMenuItem(value: true, child: Text('Page Flip')),
+                  ],
+                  onChanged: (val) {
+                    if (val != null) {
+                      setState(() {
+                        _isFlippingMode = val;
+                      });
+                      Navigator.pop(context);
+                    }
+                  },
+                ),
+              ),
             ],
           ),
         );
@@ -196,14 +234,16 @@ class _ReadAlongScreenState extends State<ReadAlongScreen> with SingleTickerProv
               children: [
                 _buildHeader(),
                 Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(24.0, 16.0, 24.0, 220.0), // Extra bottom padding for player overlay
-                    physics: const BouncingScrollPhysics(),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: _buildBookParagraphs(),
-                    ),
-                  ),
+                  child: _isFlippingMode
+                      ? _buildFlippingContent()
+                      : SingleChildScrollView(
+                          padding: const EdgeInsets.fromLTRB(24.0, 16.0, 24.0, 220.0), // Extra bottom padding for player overlay
+                          physics: const BouncingScrollPhysics(),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: _buildBookParagraphs(),
+                          ),
+                        ),
                 ),
               ],
             ),
@@ -414,6 +454,197 @@ class _ReadAlongScreenState extends State<ReadAlongScreen> with SingleTickerProv
         ),
       ];
     }
+  }
+
+  List<Widget> _buildBookPages() {
+    final title = widget.book.title.toLowerCase();
+    final isGatsby = widget.book.id == 'great_gatsby' || title.contains('gatsby');
+
+    final textStyle = const TextStyle(
+      fontFamily: 'Literata',
+      fontFamilyFallback: ['serif'],
+      fontSize: 18.0,
+      color: Color(0xFF5C3826),
+      height: 1.68,
+    );
+
+    Widget buildPageWrapper(Widget content) {
+      return Container(
+        color: const Color(0xFFFAF6F0),
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 240), // Extra bottom padding for player overlay
+        child: Center(
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: content,
+          ),
+        ),
+      );
+    }
+
+    if (isGatsby) {
+      return [
+        buildPageWrapper(
+          Text(
+            'In my younger and more vulnerable years my father gave me some advice that I’ve been turning over in my mind ever since.',
+            style: textStyle.copyWith(color: const Color(0xFF7A6B63).withValues(alpha: 0.6)),
+          ),
+        ),
+        buildPageWrapper(
+          Text(
+            '"Whenever you feel like criticizing any one," he told me, "just remember that all the people in this world haven\'t had the advantages that you\'ve had."',
+            style: textStyle,
+          ),
+        ),
+        buildPageWrapper(
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFCDDBC).withValues(alpha: 0.35),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: const Color(0xFFFCDDBC),
+                width: 1.5,
+              ),
+            ),
+            child: Text(
+              'He didn\'t say any more, but we\'ve always been unusually communicative in a reserved way, and I understood that he meant a great deal more than that.',
+              style: textStyle,
+            ),
+          ),
+        ),
+        buildPageWrapper(
+          Text(
+            'In consequence, I\'m inclined to reserve all judgments, a habit that has opened up many curious natures to me and also made me the victim of not a few veteran bores.',
+            style: textStyle.copyWith(color: const Color(0xFF7A6B63).withValues(alpha: 0.6)),
+          ),
+        ),
+        buildPageWrapper(
+          Text(
+            'The abnormal mind is quick to detect and attach itself to this quality when it appears in a normal person, and so it came about that in college I was unjustly accused of being a politician, because I was privy to the secret griefs of wild, unknown men.',
+            style: textStyle.copyWith(color: const Color(0xFF7A6B63).withValues(alpha: 0.4)),
+          ),
+        ),
+        buildPageWrapper(
+          Text(
+            'Most of the confidences were unsought—frequently I have feigned sleep, preoccupation, or a hostile levity when I realized by some unmistakable sign that an intimate revelation was quivering on the horizon.',
+            style: textStyle.copyWith(color: const Color(0xFF7A6B63).withValues(alpha: 0.2)),
+          ),
+        ),
+      ];
+    } else {
+      return [
+        buildPageWrapper(
+          Text(
+            'This is the beginning of the story of "${widget.book.title}". The lines flow elegantly as you listen to the voice of the narrator, guiding you through the pages.',
+            style: textStyle.copyWith(color: const Color(0xFF7A6B63).withValues(alpha: 0.6)),
+          ),
+        ),
+        buildPageWrapper(
+          Text(
+            'Every character speaks with depth, and the words glow on the screen, creating an immersive, multi-sensory reading experience.',
+            style: textStyle,
+          ),
+        ),
+        buildPageWrapper(
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFCDDBC).withValues(alpha: 0.35),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: const Color(0xFFFCDDBC),
+                width: 1.5,
+              ),
+            ),
+            child: Text(
+              'The core themes of ${widget.book.title} reflect the complexity of life, echoing choices and landscapes that shape the protagonist\'s journey.',
+              style: textStyle,
+            ),
+          ),
+        ),
+        buildPageWrapper(
+          Text(
+            widget.book.description,
+            style: textStyle.copyWith(color: const Color(0xFF7A6B63).withValues(alpha: 0.5)),
+          ),
+        ),
+      ];
+    }
+  }
+
+  Widget _buildFlippingContent() {
+    final pages = _buildBookPages();
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        return PageView.builder(
+          controller: _pageController,
+          itemCount: pages.length,
+          itemBuilder: (context, index) {
+            final position = index - _pageValue;
+
+            if (position <= 0 && position > -1) {
+              // Outgoing page (turning left)
+              final angle = position * math.pi;
+              final isBack = angle < -math.pi / 2;
+              final shadowOpacity = (position.abs() * 0.4).clamp(0.0, 0.4);
+
+              return Transform(
+                transform: Matrix4.identity()
+                  ..setEntry(3, 2, 0.001)
+                  ..rotateY(angle),
+                alignment: Alignment.centerLeft,
+                child: isBack
+                    ? Container(
+                        color: const Color(0xFFFAF6F0),
+                        child: Container(
+                          color: Colors.black.withValues(alpha: shadowOpacity),
+                        ),
+                      )
+                    : Stack(
+                        children: [
+                          pages[index],
+                          Positioned.fill(
+                            child: IgnorePointer(
+                              child: Container(
+                                color: Colors.black.withValues(alpha: shadowOpacity),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+              );
+            } else if (position > 0 && position < 1) {
+              // Incoming page (sitting underneath)
+              final translationX = -position * width;
+              final shadowOpacity = (position * 0.4).clamp(0.0, 0.4);
+
+              return Transform.translate(
+                offset: Offset(translationX, 0),
+                child: Stack(
+                  children: [
+                    pages[index],
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: Container(
+                          color: Colors.black.withValues(alpha: shadowOpacity),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            } else if (position <= -1) {
+              // Completely flipped page (offscreen left)
+              return const SizedBox.shrink();
+            } else {
+              // Stationary page (further right, waiting)
+              return pages[index];
+            }
+          },
+        );
+      },
+    );
   }
 
   Widget _buildBottomPlayerPanel() {

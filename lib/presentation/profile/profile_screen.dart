@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../theme.dart';
 import '../home/mock_books.dart';
 import '../../routes.dart';
+import 'profile_provider.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -182,7 +183,7 @@ class _ProfileScreenState extends State<ProfileScreen>
             top: bannerH + (overlapBelowBanner * 2 - 38) / 2,
             right: 20,
             child: OutlinedButton(
-              onPressed: () {},
+              onPressed: () => _showEditProfileSheet(context),
               style: OutlinedButton.styleFrom(
                 foregroundColor: _chocolateBrown,
                 side: const BorderSide(color: Color(0xFFDDD4C4), width: 1.5),
@@ -210,33 +211,131 @@ class _ProfileScreenState extends State<ProfileScreen>
             left: 22,
             right: 22,
             bottom: 10,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Kabutey',
-                  style: TextStyle(
-                    fontFamily: 'Literata',
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: _chocolateBrown,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  'Book lover · Gold Member · 28 books read this year',
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 12,
-                    color: _mutedText.withValues(alpha: 0.9),
-                  ),
-                ),
-              ],
+            child: ListenableBuilder(
+              listenable: ProfileProvider.instance,
+              builder: (context, child) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      ProfileProvider.instance.name,
+                      style: const TextStyle(
+                        fontFamily: 'Literata',
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: _chocolateBrown,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      ProfileProvider.instance.bio,
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 12,
+                        color: _mutedText.withValues(alpha: 0.9),
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
         ],
       ),
+    );
+  }
+
+  void _showEditProfileSheet(BuildContext context) {
+    final nameController = TextEditingController(text: ProfileProvider.instance.name);
+    final bioController = TextEditingController(text: ProfileProvider.instance.bio);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(context).viewInsets.bottom + 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Edit Profile',
+                style: TextStyle(
+                  fontFamily: 'Literata',
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF5C3826),
+                ),
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Name',
+                  labelStyle: TextStyle(color: Color(0xFF7A6B63)),
+                  focusedBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF8C481A)),
+                  ),
+                ),
+                style: const TextStyle(fontFamily: 'Inter', color: Color(0xFF1A0F0A)),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: bioController,
+                decoration: const InputDecoration(
+                  labelText: 'Bio / Tagline',
+                  labelStyle: TextStyle(color: Color(0xFF7A6B63)),
+                  focusedBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF8C481A)),
+                  ),
+                ),
+                maxLines: 2,
+                style: const TextStyle(fontFamily: 'Inter', color: Color(0xFF1A0F0A)),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: () {
+                    ProfileProvider.instance.updateProfile(
+                      name: nameController.text.trim(),
+                      bio: bioController.text.trim(),
+                    );
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Profile updated successfully!'),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF8C481A),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Save Changes',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
