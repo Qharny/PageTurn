@@ -29,8 +29,6 @@ class _ReadAlongScreenState extends State<ReadAlongScreen> with SingleTickerProv
   ];
 
   bool _isFlippingMode = true;
-  late final PageController _pageController;
-  double _pageValue = 0.0;
 
   @override
   void initState() {
@@ -39,18 +37,11 @@ class _ReadAlongScreenState extends State<ReadAlongScreen> with SingleTickerProv
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     );
-    _pageController = PageController();
-    _pageController.addListener(() {
-      setState(() {
-        _pageValue = _pageController.page ?? 0.0;
-      });
-    });
   }
 
   @override
   void dispose() {
     _waveController.dispose();
-    _pageController.dispose();
     super.dispose();
   }
 
@@ -573,78 +564,7 @@ class _ReadAlongScreenState extends State<ReadAlongScreen> with SingleTickerProv
   }
 
   Widget _buildFlippingContent() {
-    final pages = _buildBookPages();
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth;
-        return PageView.builder(
-          controller: _pageController,
-          itemCount: pages.length,
-          itemBuilder: (context, index) {
-            final position = index - _pageValue;
-
-            if (position <= 0 && position > -1) {
-              // Outgoing page (turning left)
-              final angle = position * math.pi;
-              final isBack = angle < -math.pi / 2;
-              final shadowOpacity = (position.abs() * 0.4).clamp(0.0, 0.4);
-
-              return Transform(
-                transform: Matrix4.identity()
-                  ..setEntry(3, 2, 0.001)
-                  ..rotateY(angle),
-                alignment: Alignment.centerLeft,
-                child: isBack
-                    ? Container(
-                        color: const Color(0xFFFAF6F0),
-                        child: Container(
-                          color: Colors.black.withValues(alpha: shadowOpacity),
-                        ),
-                      )
-                    : Stack(
-                        children: [
-                          pages[index],
-                          Positioned.fill(
-                            child: IgnorePointer(
-                              child: Container(
-                                color: Colors.black.withValues(alpha: shadowOpacity),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-              );
-            } else if (position > 0 && position < 1) {
-              // Incoming page (sitting underneath)
-              final translationX = -position * width;
-              final shadowOpacity = (position * 0.4).clamp(0.0, 0.4);
-
-              return Transform.translate(
-                offset: Offset(translationX, 0),
-                child: Stack(
-                  children: [
-                    pages[index],
-                    Positioned.fill(
-                      child: IgnorePointer(
-                        child: Container(
-                          color: Colors.black.withValues(alpha: shadowOpacity),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            } else if (position <= -1) {
-              // Completely flipped page (offscreen left)
-              return const SizedBox.shrink();
-            } else {
-              // Stationary page (further right, waiting)
-              return pages[index];
-            }
-          },
-        );
-      },
-    );
+    return _PageFlipView(pages: _buildBookPages());
   }
 
   Widget _buildBottomPlayerPanel() {
@@ -844,6 +764,255 @@ class _ReadAlongScreenState extends State<ReadAlongScreen> with SingleTickerProv
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// A 3D page-flipping view. The top page rotates around its left edge (spine)
+/// while the neighbouring page is revealed underneath, giving a realistic book
+/// page-turn. Supports both dragging and tapping the left/right edge to turn.
+class _PageFlipView extends StatefulWidget {
+  const _PageFlipView({required this.pages});
+
+  final List<Widget> pages;
+
+  @override
+  State<_PageFlipView> createState() => _PageFlipViewState();
+}
+
+class _PageFlipViewState extends State<_PageFlipView>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  int _currentIndex = 0;
+  double _value = 0.0; // 0..1 progress of the in-flight flip
+  int _direction = 0; // 1 = forward (next page), -1 = backward (previous page)
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 450),
+    )..addListener(() {
+        setState(() => _value = _controller.value);
+      });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  bool get _canGoNext => _currentIndex < widget.pages.length - 1;
+  bool get _canGoPrev => _currentIndex > 0;
+
+  void _onDragUpdate(DragUpdateDetails details, double width) {
+    if (_controller.isAnimating) return;
+    if (_direction == 0) {
+      if (details.delta.dx < 0) {
+        if (!_canGoNext) return;
+        _direction = 1;
+      } else if (details.delta.dx > 0) {
+        if (!_canGoPrev) return;
+        _direction = -1;
+      } else {
+        return;
+      }
+    }
+    setState(() {
+      _value = (_value + (-details.delta.dx / width) * _direction)
+          .clamp(0.0, 1.0);
+    });
+  }
+
+  void _onDragEnd(DragEndDetails details, double width) {
+    if (_direction == 0 || _controller.isAnimating) return;
+    final velocity = details.primaryVelocity ?? 0.0;
+    final bool complete = _direction == 1
+        ? (_value > 0.5 || velocity < -600)
+        : (_value > 0.5 || velocity > 600);
+    _settle(complete);
+  }
+
+  void _settle(bool complete) {
+    _controller.value = _value;
+    _controller
+        .animateTo(
+          complete ? 1.0 : 0.0,
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeOut,
+        )
+        .whenComplete(() {
+      setState(() {
+        if (complete) _currentIndex += _direction;
+        _direction = 0;
+        _value = 0.0;
+        _controller.value = 0.0;
+      });
+    });
+  }
+
+  void _flip(int direction) {
+    if (_controller.isAnimating || _direction != 0) return;
+    if (direction == 1 && !_canGoNext) return;
+    if (direction == -1 && !_canGoPrev) return;
+    setState(() {
+      _direction = direction;
+      _value = 0.0;
+    });
+    _controller.value = 0.0;
+    _controller
+        .animateTo(
+          1.0,
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeInOut,
+        )
+        .whenComplete(() {
+      setState(() {
+        _currentIndex += _direction;
+        _direction = 0;
+        _value = 0.0;
+        _controller.value = 0.0;
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onHorizontalDragUpdate: (d) => _onDragUpdate(d, width),
+          onHorizontalDragEnd: (d) => _onDragEnd(d, width),
+          onTapUp: (d) {
+            if (_controller.isAnimating || _direction != 0) return;
+            if (d.localPosition.dx > width * 0.72) {
+              _flip(1);
+            } else if (d.localPosition.dx < width * 0.28) {
+              _flip(-1);
+            }
+          },
+          child: Stack(children: _buildLayers()),
+        );
+      },
+    );
+  }
+
+  List<Widget> _buildLayers() {
+    final pages = widget.pages;
+
+    if (_direction == 0) {
+      return [Positioned.fill(child: pages[_currentIndex])];
+    }
+
+    if (_direction == 1) {
+      // Forward: current page flips left over the spine, next page revealed.
+      final angle = -_value * math.pi;
+      return [
+        Positioned.fill(child: pages[_currentIndex + 1]),
+        _spineShadow(_value),
+        _flippingPage(pages[_currentIndex], angle),
+      ];
+    }
+
+    // Backward: previous page rotates back into view on top of the current one.
+    final angle = -(1 - _value) * math.pi;
+    return [
+      Positioned.fill(child: pages[_currentIndex]),
+      _flippingPage(pages[_currentIndex - 1], angle),
+    ];
+  }
+
+  /// Soft shadow cast into the spine of the revealed page, strongest mid-flip.
+  Widget _spineShadow(double value) {
+    final intensity = math.sin(value * math.pi).clamp(0.0, 1.0);
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: [
+                Colors.black.withValues(alpha: 0.22 * intensity),
+                Colors.black.withValues(alpha: 0.0),
+              ],
+              stops: const [0.0, 0.35],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// The turning leaf: rotated around its left edge with perspective. Shows the
+  /// page content while facing the reader, then its shaded back once past 90°.
+  Widget _flippingPage(Widget page, double angle) {
+    final showingFront = angle > -math.pi / 2;
+    final lift = math.sin(-angle).clamp(0.0, 1.0); // 0 flat, 1 at 90°
+
+    return Positioned.fill(
+      child: Transform(
+        alignment: Alignment.centerLeft,
+        transform: Matrix4.identity()
+          ..setEntry(3, 2, 0.0015)
+          ..rotateY(angle),
+        child: showingFront
+            ? Stack(
+                fit: StackFit.expand,
+                children: [
+                  page,
+                  IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                          colors: [
+                            Colors.black.withValues(alpha: 0.0),
+                            Colors.black.withValues(alpha: 0.30 * lift),
+                          ],
+                          stops: const [0.55, 1.0],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              )
+            : _backOfPage(lift),
+      ),
+    );
+  }
+
+  /// The blank reverse side of a leaf, tinted slightly darker than the paper.
+  Widget _backOfPage(double lift) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [Color(0xFFEDE6DA), Color(0xFFDCD2C3)],
+        ),
+      ),
+      child: IgnorePointer(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: [
+                Colors.black.withValues(alpha: 0.20 * lift),
+                Colors.black.withValues(alpha: 0.0),
+              ],
+              stops: const [0.0, 0.5],
+            ),
+          ),
+        ),
       ),
     );
   }
