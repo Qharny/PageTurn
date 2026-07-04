@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../theme.dart';
 import '../../routes.dart';
 import '../../data/models/book_model.dart';
-import '../home/mock_books.dart';
+import 'library_provider.dart';
 
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
@@ -18,13 +18,7 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
 
   final List<String> _tabs = ['All', 'Reading', 'Finished', 'Want to Read'];
 
-  final List<Book> _libraryBooks = [
-    MockBooks.midnightLibrary,
-    MockBooks.atomicHabits,
-    MockBooks.dune,
-    MockBooks.educated,
-    MockBooks.greatGatsby,
-  ];
+  List<Book> get _libraryBooks => LibraryProvider.instance.books;
 
   late final TabController _tabController;
 
@@ -82,64 +76,60 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.neutral,
-      body: Stack(
-        children: [
-          // Speckled paper texture background
-          const Positioned.fill(
-            child: CustomPaint(painter: _SpeckPainter()),
+    return ListenableBuilder(
+      listenable: LibraryProvider.instance,
+      builder: (context, _) {
+        return Scaffold(
+          backgroundColor: AppTheme.neutral,
+          body: Stack(
+            children: [
+              // Speckled paper texture background
+              const Positioned.fill(
+                child: CustomPaint(painter: _SpeckPainter()),
+              ),
+              SafeArea(
+                bottom: false,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(
+                      width: 0,
+                      height: 0,
+                      child: Text(
+                        'Manage your saved, reading, and completed books.',
+                        style: TextStyle(fontSize: 0.01, color: Colors.transparent),
+                      ),
+                    ),
+                    _buildHeader(),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
+                      child: _buildSearchBar(),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          _buildLayoutToggles(),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildTabsBar(),
+                    const SizedBox(height: 16),
+                    Expanded(
+                      child: TabBarView(
+                        controller: _tabController,
+                        children: List.generate(_tabs.length, (index) => _buildTabPage(index)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          SafeArea(
-            bottom: false,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(
-                  width: 0,
-                  height: 0,
-                  child: Text(
-                    'Manage your saved, reading, and completed books.',
-                    style: TextStyle(fontSize: 0.01, color: Colors.transparent),
-                  ),
-                ),
-                _buildHeader(),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
-                  child: _buildSearchBar(),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      _buildLayoutToggles(),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _buildTabsBar(),
-                const SizedBox(height: 16),
-                Expanded(
-                  child: TabBarView(
-                    controller: _tabController,
-                    children: List.generate(_tabs.length, (index) => _buildTabPage(index)),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        heroTag: 'library_fab',
-        onPressed: () {},
-        backgroundColor: const Color(0xFF8B4513),
-        foregroundColor: Colors.white,
-        elevation: 3,
-        shape: const CircleBorder(),
-        child: const Icon(Icons.add_rounded, size: 28),
-      ),
+        );
+      },
     );
   }
 

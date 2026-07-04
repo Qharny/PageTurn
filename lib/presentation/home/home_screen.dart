@@ -6,6 +6,7 @@ import '../../routes.dart';
 import '../../data/models/book_model.dart';
 import 'mock_books.dart';
 import '../common/widgets/book_cover.dart';
+import '../library/library_provider.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -329,56 +330,84 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildContinueReading(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return ListenableBuilder(
+      listenable: LibraryProvider.instance,
+      builder: (context, _) {
+        final readingBooks = LibraryProvider.instance.books
+            .where((b) => b.progress != null && b.progress! > 0 && b.isFinished != true)
+            .toList();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Continue Reading',
-              style: TextStyle(
-                fontFamily: 'Literata',
-                fontFamilyFallback: ['serif'],
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF5C3826),
-              ),
-            ),
-            TextButton(
-              onPressed: () {},
-              child: Text(
-                'SEE ALL',
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  color: AppTheme.primary,
-                  letterSpacing: 1.0,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Continue Reading',
+                  style: TextStyle(
+                    fontFamily: 'Literata',
+                    fontFamilyFallback: ['serif'],
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF5C3826),
+                  ),
                 ),
+                if (readingBooks.isNotEmpty)
+                  TextButton(
+                    onPressed: () {},
+                    child: Text(
+                      'SEE ALL',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.primary,
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              clipBehavior: Clip.none,
+              child: Row(
+                children: [
+                  if (readingBooks.isEmpty) ...[
+                    _buildContinueReadingCard(
+                      context,
+                      book: MockBooks.becoming,
+                      progress: 0.45,
+                      progressText: '192/426 pages',
+                    ),
+                    const SizedBox(width: 16),
+                    _buildContinueReadingCardPlaceholder(),
+                  ] else ...[
+                    ...readingBooks.map((book) {
+                      final pagesText = book.length.replaceAll('p', '');
+                      final totalPages = int.tryParse(pagesText) ?? 300;
+                      final readPages = (totalPages * (book.progress ?? 0)).toInt();
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 16),
+                        child: _buildContinueReadingCard(
+                          context,
+                          book: book,
+                          progress: book.progress ?? 0.0,
+                          progressText: '$readPages/$totalPages pages',
+                        ),
+                      );
+                    }),
+                    _buildContinueReadingCardPlaceholder(),
+                  ],
+                ],
               ),
             ),
           ],
-        ),
-        const SizedBox(height: 12),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          physics: const BouncingScrollPhysics(),
-          clipBehavior: Clip.none,
-          child: Row(
-            children: [
-              _buildContinueReadingCard(
-                context,
-                book: MockBooks.becoming,
-                progress: 0.45,
-                progressText: '120/300 pages',
-              ),
-              const SizedBox(width: 16),
-              _buildContinueReadingCardPlaceholder(),
-            ],
-          ),
-        ),
-      ],
+        );
+      },
     );
   }
 

@@ -205,4 +205,9 @@ class ReadingClubProvider extends ChangeNotifier {
     ));
     notifyListeners();
   }
+
+  void addClub(ReadingClub club) {
+    _clubs.add(club);
+    notifyListeners();
+  }
 }

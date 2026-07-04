@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../theme.dart';
 import '../../data/models/book_model.dart';
 import '../../routes.dart';
+import '../library/library_provider.dart';
 
 class BookDetailScreen extends StatefulWidget {
   const BookDetailScreen({super.key, required this.book});
@@ -14,7 +15,6 @@ class BookDetailScreen extends StatefulWidget {
 }
 
 class _BookDetailScreenState extends State<BookDetailScreen> {
-  bool _isBookmarked = false;
   bool _descriptionExpanded = false;
 
   static const _darkBrown = Color(0xFF1A0F0A);
@@ -206,52 +206,59 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
               ),
             ),
           ),
-
           // ── Animated Save button: white strip, bottom-right ──────────
           Positioned(
             top: bannerH + (coverBelowBanner - 38) / 2,
             right: 20,
-            child: GestureDetector(
-              onTap: () => setState(() => _isBookmarked = !_isBookmarked),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                decoration: BoxDecoration(
-                  color: _isBookmarked ? AppTheme.primary : Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: _isBookmarked ? AppTheme.primary : const Color(0xFFDDD4C4),
-                    width: 1.5,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.07),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      _isBookmarked ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded,
-                      color: _isBookmarked ? Colors.white : _chocolateBrown,
-                      size: 16,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      _isBookmarked ? 'Saved' : 'Save',
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: _isBookmarked ? Colors.white : _chocolateBrown,
+            child: ListenableBuilder(
+              listenable: LibraryProvider.instance,
+              builder: (context, _) {
+                final isBookmarked = LibraryProvider.instance.isBookmarked(widget.book.id);
+                return GestureDetector(
+                  onTap: () {
+                    LibraryProvider.instance.toggleBookmark(widget.book);
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: isBookmarked ? AppTheme.primary : Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: isBookmarked ? AppTheme.primary : const Color(0xFFDDD4C4),
+                        width: 1.5,
                       ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.07),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isBookmarked ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded,
+                          color: isBookmarked ? Colors.white : _chocolateBrown,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          isBookmarked ? 'Saved' : 'Save',
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: isBookmarked ? Colors.white : _chocolateBrown,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         ],

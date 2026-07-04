@@ -3,6 +3,7 @@ import '../../theme.dart';
 import '../home/mock_books.dart';
 import '../../routes.dart';
 import 'profile_provider.dart';
+import '../../data/models/book_model.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -584,8 +585,7 @@ class _ProfileScreenState extends State<ProfileScreen>
       ),
     );
   }
-
-  Widget _buildReadingBookCard(book) {
+  Widget _buildReadingBookCard(Book book) {
     return GestureDetector(
       onTap: () => Navigator.pushNamed(context, AppRoutes.details, arguments: book),
       child: Container(
