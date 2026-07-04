@@ -355,7 +355,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 if (readingBooks.isNotEmpty)
                   TextButton(
-                    onPressed: () {},
+                    onPressed: () => Navigator.pushNamed(
+                        context, AppRoutes.continueReading),
                     child: Text(
                       'SEE ALL',
                       style: TextStyle(

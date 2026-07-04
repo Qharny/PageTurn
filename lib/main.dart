@@ -316,80 +316,82 @@ class _AddBottomSheetContentState extends State<_AddBottomSheetContent> with Sin
             20,
             MediaQuery.of(context).viewInsets.bottom + 16,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4.5,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFDDD4C4),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Add to PageTurn',
-                    style: TextStyle(
-                      fontFamily: 'Literata',
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF5C3826),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4.5,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFDDD4C4),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.close_rounded, color: Color(0xFF7A6B63)),
-                    onPressed: () => Navigator.pop(context),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Add to PageTurn',
+                      style: TextStyle(
+                        fontFamily: 'Literata',
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF5C3826),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, color: Color(0xFF7A6B63)),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                TabBar(
+                  controller: _tabController,
+                  indicatorColor: AppTheme.primary,
+                  labelColor: AppTheme.primary,
+                  unselectedLabelColor: const Color(0xFF7A6B63),
+                  labelStyle: const TextStyle(
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
                   ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              TabBar(
-                controller: _tabController,
-                indicatorColor: AppTheme.primary,
-                labelColor: AppTheme.primary,
-                unselectedLabelColor: const Color(0xFF7A6B63),
-                labelStyle: const TextStyle(
-                  fontFamily: 'Inter',
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
+                  unselectedLabelStyle: const TextStyle(
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.normal,
+                    fontSize: 13,
+                  ),
+                  indicatorWeight: 3,
+                  dividerColor: const Color(0xFFF2ECE4),
+                  tabs: const [
+                    Tab(text: 'Catalog'),
+                    Tab(text: 'Custom Book'),
+                    Tab(text: 'Reading Club'),
+                  ],
                 ),
-                unselectedLabelStyle: const TextStyle(
-                  fontFamily: 'Inter',
-                  fontWeight: FontWeight.normal,
-                  fontSize: 13,
-                ),
-                indicatorWeight: 3,
-                dividerColor: const Color(0xFFF2ECE4),
-                tabs: const [
-                  Tab(text: 'Catalog'),
-                  Tab(text: 'Custom Book'),
-                  Tab(text: 'Reading Club'),
-                ],
-              ),
-              const SizedBox(height: 20),
-              AnimatedSize(
-                duration: const Duration(milliseconds: 250),
-                curve: Curves.easeInOut,
-                child: SizedBox(
-                  height: 330,
-                  child: TabBarView(
-                    controller: _tabController,
-                    children: [
-                      _buildCatalogTab(),
-                      _buildCustomBookTab(),
-                      _buildReadingClubTab(),
-                    ],
+                const SizedBox(height: 20),
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeInOut,
+                  child: SizedBox(
+                    height: 330,
+                    child: TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _buildCatalogTab(),
+                        _buildCustomBookTab(),
+                        _buildReadingClubTab(),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -575,92 +577,89 @@ class _AddBottomSheetContentState extends State<_AddBottomSheetContent> with Sin
   Widget _buildCustomBookTab() {
     return Form(
       key: _bookFormKey,
-      child: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const SizedBox(height: 4),
-            TextFormField(
-              controller: _bookTitleController,
-              decoration: _buildInputDecoration('Book Title', Icons.book_rounded),
-              validator: (val) => val == null || val.trim().isEmpty ? 'Please enter title' : null,
-              style: const TextStyle(fontSize: 14),
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _bookAuthorController,
-              decoration: _buildInputDecoration('Author', Icons.person_rounded),
-              validator: (val) => val == null || val.trim().isEmpty ? 'Please enter author' : null,
-              style: const TextStyle(fontSize: 14),
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _bookLengthController,
-              keyboardType: TextInputType.number,
-              decoration: _buildInputDecoration('Length (pages)', Icons.format_list_numbered_rounded),
-              validator: (val) {
-                if (val == null || val.trim().isEmpty) {
-                  return 'Please enter page count';
-                }
-                if (int.tryParse(val) == null) {
-                  return 'Must be a valid number';
-                }
-                return null;
-              },
-              style: const TextStyle(fontSize: 14),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                if (_bookFormKey.currentState!.validate()) {
-                  final customBook = Book(
-                    id: 'custom_${DateTime.now().millisecondsSinceEpoch}',
-                    title: _bookTitleController.text.trim(),
-                    author: _bookAuthorController.text.trim(),
-                    coverAsset: '',
-                    rating: 5.0,
-                    reviewCount: '0',
-                    length: '${_bookLengthController.text.trim()}p',
-                    audioDuration: '0h 00m',
-                    language: 'Eng',
-                    description: 'A custom book added by user.',
-                    tags: const [
-                      BookTag(text: 'Custom', backgroundColorValue: 0xFFEDE7F6, textColorValue: 0xFF5E35B1),
-                    ],
-                    reviews: const [],
-                  );
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: 4),
+          TextFormField(
+            controller: _bookTitleController,
+            decoration: _buildInputDecoration('Book Title', Icons.book_rounded),
+            validator: (val) => val == null || val.trim().isEmpty ? 'Please enter title' : null,
+            style: const TextStyle(fontSize: 14),
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _bookAuthorController,
+            decoration: _buildInputDecoration('Author', Icons.person_rounded),
+            validator: (val) => val == null || val.trim().isEmpty ? 'Please enter author' : null,
+            style: const TextStyle(fontSize: 14),
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _bookLengthController,
+            keyboardType: TextInputType.number,
+            decoration: _buildInputDecoration('Length (pages)', Icons.format_list_numbered_rounded),
+            validator: (val) {
+              if (val == null || val.trim().isEmpty) {
+                return 'Please enter page count';
+              }
+              if (int.tryParse(val) == null) {
+                return 'Must be a valid number';
+              }
+              return null;
+            },
+            style: const TextStyle(fontSize: 14),
+          ),
+          const SizedBox(height: 20),
+          ElevatedButton(
+            onPressed: () {
+              if (_bookFormKey.currentState!.validate()) {
+                final customBook = Book(
+                  id: 'custom_${DateTime.now().millisecondsSinceEpoch}',
+                  title: _bookTitleController.text.trim(),
+                  author: _bookAuthorController.text.trim(),
+                  coverAsset: '',
+                  rating: 5.0,
+                  reviewCount: '0',
+                  length: '${_bookLengthController.text.trim()}p',
+                  audioDuration: '0h 00m',
+                  language: 'Eng',
+                  description: 'A custom book added by user.',
+                  tags: const [
+                    BookTag(text: 'Custom', backgroundColorValue: 0xFFEDE7F6, textColorValue: 0xFF5E35B1),
+                  ],
+                  reviews: const [],
+                );
 
-                  LibraryProvider.instance.addBook(customBook);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Added "${customBook.title}" to library.'),
-                      backgroundColor: const Color(0xFF5C3826),
-                    ),
-                  );
-                  Navigator.pop(context);
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primary,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                elevation: 1,
+                LibraryProvider.instance.addBook(customBook);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Added "${customBook.title}" to library.'),
+                    backgroundColor: const Color(0xFF5C3826),
+                  ),
+                );
+                Navigator.pop(context);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: const Text(
-                'Add to Library',
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              elevation: 1,
+            ),
+            child: const Text(
+              'Add to Library',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -668,125 +667,122 @@ class _AddBottomSheetContentState extends State<_AddBottomSheetContent> with Sin
   Widget _buildReadingClubTab() {
     return Form(
       key: _clubFormKey,
-      child: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const SizedBox(height: 4),
-            TextFormField(
-              controller: _clubNameController,
-              decoration: _buildInputDecoration('Club Name', Icons.group_rounded),
-              validator: (val) => val == null || val.trim().isEmpty ? 'Please enter club name' : null,
-              style: const TextStyle(fontSize: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: 4),
+          TextFormField(
+            controller: _clubNameController,
+            decoration: _buildInputDecoration('Club Name', Icons.group_rounded),
+            validator: (val) => val == null || val.trim().isEmpty ? 'Please enter club name' : null,
+            style: const TextStyle(fontSize: 14),
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _clubDescController,
+            decoration: _buildInputDecoration('Description', Icons.description_rounded),
+            validator: (val) => val == null || val.trim().isEmpty ? 'Please enter description' : null,
+            style: const TextStyle(fontSize: 14),
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _clubModeratorController,
+            decoration: _buildInputDecoration('Moderator (optional)', Icons.admin_panel_settings_rounded),
+            style: const TextStyle(fontSize: 14),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Select Club Style:',
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 12,
+              color: Color(0xFF7A6B63),
+              fontWeight: FontWeight.bold,
             ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _clubDescController,
-              decoration: _buildInputDecoration('Description', Icons.description_rounded),
-              validator: (val) => val == null || val.trim().isEmpty ? 'Please enter description' : null,
-              style: const TextStyle(fontSize: 14),
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _clubModeratorController,
-              decoration: _buildInputDecoration('Moderator (optional)', Icons.admin_panel_settings_rounded),
-              style: const TextStyle(fontSize: 14),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'Select Club Style:',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 12,
-                color: Color(0xFF7A6B63),
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: List.generate(_clubStyles.length, (index) {
-                final style = _clubStyles[index];
-                final isSelected = _selectedStyleIndex == index;
-                final icon = style['icon'] as IconData;
-                final color = style['color'] as Color;
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: List.generate(_clubStyles.length, (index) {
+              final style = _clubStyles[index];
+              final isSelected = _selectedStyleIndex == index;
+              final icon = style['icon'] as IconData;
+              final color = style['color'] as Color;
 
-                return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _selectedStyleIndex = index;
-                    });
-                  },
-                  child: Container(
-                    width: 50,
-                    height: 50,
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: isSelected ? color : Colors.transparent,
-                        width: 2.2,
-                      ),
+              return GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _selectedStyleIndex = index;
+                  });
+                },
+                child: Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isSelected ? color : Colors.transparent,
+                      width: 2.2,
                     ),
-                    child: Icon(icon, color: color, size: 24),
+                  ),
+                  child: Icon(icon, color: color, size: 24),
+                ),
+              );
+            }),
+          ),
+          const SizedBox(height: 20),
+          ElevatedButton(
+            onPressed: () {
+              if (_clubFormKey.currentState!.validate()) {
+                final chosenStyle = _clubStyles[_selectedStyleIndex];
+                final newClub = ReadingClub(
+                  id: 'club_${DateTime.now().millisecondsSinceEpoch}',
+                  name: _clubNameController.text.trim(),
+                  description: _clubDescController.text.trim(),
+                  icon: chosenStyle['icon'] as IconData,
+                  iconColor: chosenStyle['color'] as Color,
+                  bgColor: (chosenStyle['color'] as Color).withValues(alpha: 0.12),
+                  memberCount: 1,
+                  rules: const [
+                    'Respect fellow members and their interpretations.',
+                    'No spoilers outside the designated discussion threads.',
+                    'Keep discussions constructive and encouraging.'
+                  ],
+                  moderator: _clubModeratorController.text.trim().isNotEmpty
+                      ? _clubModeratorController.text.trim()
+                      : 'Kabutey',
+                );
+
+                ReadingClubProvider.instance.addClub(newClub);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Created reading club "${newClub.name}".'),
+                    backgroundColor: const Color(0xFF5C3826),
                   ),
                 );
-              }),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                if (_clubFormKey.currentState!.validate()) {
-                  final chosenStyle = _clubStyles[_selectedStyleIndex];
-                  final newClub = ReadingClub(
-                    id: 'club_${DateTime.now().millisecondsSinceEpoch}',
-                    name: _clubNameController.text.trim(),
-                    description: _clubDescController.text.trim(),
-                    icon: chosenStyle['icon'] as IconData,
-                    iconColor: chosenStyle['color'] as Color,
-                    bgColor: (chosenStyle['color'] as Color).withValues(alpha: 0.12),
-                    memberCount: 1,
-                    rules: const [
-                      'Respect fellow members and their interpretations.',
-                      'No spoilers outside the designated discussion threads.',
-                      'Keep discussions constructive and encouraging.'
-                    ],
-                    moderator: _clubModeratorController.text.trim().isNotEmpty
-                        ? _clubModeratorController.text.trim()
-                        : 'Kabutey',
-                  );
-
-                  ReadingClubProvider.instance.addClub(newClub);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Created reading club "${newClub.name}".'),
-                      backgroundColor: const Color(0xFF5C3826),
-                    ),
-                  );
-                  Navigator.pop(context);
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primary,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                elevation: 1,
+                Navigator.pop(context);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: const Text(
-                'Create Club',
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              elevation: 1,
+            ),
+            child: const Text(
+              'Create Club',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

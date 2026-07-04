@@ -586,7 +586,8 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
               ),
             ),
             TextButton(
-              onPressed: () {},
+              onPressed: () => Navigator.pushNamed(
+                  context, AppRoutes.reviews, arguments: widget.book),
               style: TextButton.styleFrom(padding: EdgeInsets.zero),
               child: const Text(
                 'See all',

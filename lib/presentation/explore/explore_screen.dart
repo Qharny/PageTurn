@@ -168,7 +168,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
               ),
             ),
             GestureDetector(
-              onTap: () {},
+              onTap: () => Navigator.pushNamed(
+                  context, AppRoutes.trendingLeaderboard),
               child: const Padding(
                 padding: EdgeInsets.only(bottom: 4),
                 child: Text(

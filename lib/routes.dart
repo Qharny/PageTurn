@@ -11,6 +11,9 @@ import 'presentation/audiobooks/audiobooks_screen.dart';
 import 'presentation/ebooks/ebooks_screen.dart';
 import 'presentation/settings/settings_screen.dart';
 import 'presentation/help/help_screen.dart';
+import 'presentation/home/continue_reading_screen.dart';
+import 'presentation/explore/trending_leaderboard_screen.dart';
+import 'presentation/book_detail/reviews_screen.dart';
 
 class AppRoutes {
   static const String splash = '/splash';
@@ -24,6 +27,9 @@ class AppRoutes {
   static const String ebooks = '/ebooks';
   static const String settings = '/settings';
   static const String help = '/help';
+  static const String continueReading = '/continue-reading';
+  static const String trendingLeaderboard = '/trending-leaderboard';
+  static const String reviews = '/reviews';
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -52,6 +58,13 @@ class AppRoutes {
         return _buildPageRoute(const SettingsScreen(), settings);
       case help:
         return _buildPageRoute(const HelpScreen(), settings);
+      case continueReading:
+        return _buildPageRoute(const ContinueReadingScreen(), settings);
+      case trendingLeaderboard:
+        return _buildPageRoute(const TrendingLeaderboardScreen(), settings);
+      case reviews:
+        final book = settings.arguments as Book;
+        return _buildPageRoute(ReviewsScreen(book: book), settings);
       default:
         return _buildPageRoute(
           const Scaffold(
