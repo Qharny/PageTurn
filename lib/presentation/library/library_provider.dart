@@ -1,30 +1,11 @@
 import 'package:flutter/material.dart';
-import '../../config/env.dart';
 import '../../data/models/book_model.dart';
 import '../../data/repositories/repository_locator.dart';
-import '../home/mock_books.dart';
 
 class LibraryProvider extends ChangeNotifier {
   static final LibraryProvider instance = LibraryProvider._internal();
   LibraryProvider._internal() {
-    final byId = <String, Book>{};
-    if (AppConfig.useMockData) {
-      for (final b in const [
-        MockBooks.midnightLibrary,
-        MockBooks.atomicHabits,
-        MockBooks.dune,
-        MockBooks.educated,
-        MockBooks.greatGatsby,
-      ]) {
-        byId[b.id] = b;
-      }
-    }
-    // Persisted (downloaded/imported/quick-added) books take priority over
-    // the demo seed, since they carry real progress/local file state.
-    for (final b in RepositoryLocator.localSource.getAllBooks()) {
-      byId[b.id] = b;
-    }
-    _libraryBooks.addAll(byId.values);
+    _libraryBooks.addAll(RepositoryLocator.localSource.getAllBooks());
   }
 
   final List<Book> _libraryBooks = [];

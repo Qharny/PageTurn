@@ -23,6 +23,11 @@ class ParsedEpubBook {
   const ParsedEpubBook({required this.metadata, required this.chapters});
 }
 
+/// Top-level so it can be run on a background isolate via `compute()` —
+/// parsing a large EPUB (hundreds of chapters) synchronously on the UI
+/// isolate can block the main thread for many seconds.
+ParsedEpubBook parseEpubFile(String path) => EpubParser().parse(File(path));
+
 /// Minimal EPUB (OCF/OPF) parser built on `archive` + `xml`, avoiding the
 /// `epubx` package (its `image` dependency conflicts with
 /// `flutter_launcher_icons`, already a dev dependency of this project).

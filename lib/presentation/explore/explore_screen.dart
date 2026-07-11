@@ -1,62 +1,13 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
 import '../../data/models/book_model.dart';
+import '../../data/repositories/repository_locator.dart';
+import '../../core/errors/app_exception.dart';
 import '../../theme.dart';
 import '../../routes.dart';
 import '../common/widgets/book_cover.dart';
-import '../home/mock_books.dart';
 import '../reading_clubs/reading_club_provider.dart';
 import '../reading_clubs/club_detail_screen.dart';
-
-const Book mockGildedSpine = Book(
-  id: 'gilded_spine',
-  title: 'The Gilded Spine',
-  author: 'Ariel S. Vance',
-  coverAsset: 'assets/images/cover_gilded_spine.png',
-  rating: 4.8,
-  reviewCount: '2.5k',
-  length: '384p',
-  audioDuration: '10h 15m',
-  language: 'Eng',
-  description: 'In an age where gears and magic intertwine, a clockwork librarian discovers a legendary book hidden deep within the Grand Archives—one containing the blueprint to the universe itself.',
-  tags: [
-    BookTag(text: 'Steampunk', backgroundColorValue: 0xFFFDF0E9, textColorValue: 0xFFE67E22),
-    BookTag(text: 'Fantasy', backgroundColorValue: 0xFFECEFF1, textColorValue: 0xFF455A64),
-  ],
-  reviews: [
-    BookReview(
-      reviewerName: 'Arthur P.',
-      reviewerAvatarUrl: '',
-      rating: 5,
-      comment: 'An absolute masterpiece of steampunk worldbuilding. The characters feel alive!',
-    ),
-  ],
-);
-
-const Book mockShatteredEchoes = Book(
-  id: 'shattered_echoes',
-  title: 'Shattered Echoes',
-  author: 'Julian Thorne',
-  coverAsset: 'assets/images/cover_shattered_echoes.png',
-  rating: 4.6,
-  reviewCount: '1.8k',
-  length: '312p',
-  audioDuration: '9h 40m',
-  language: 'Eng',
-  description: 'A psychological thriller about an artist whose digital creations begin reflecting a parallel reality, starting with a cracked vase on his phone screen that appears in his real room.',
-  tags: [
-    BookTag(text: 'Thriller', backgroundColorValue: 0xFFFFEBEA, textColorValue: 0xFFC0392B),
-    BookTag(text: 'Mystery', backgroundColorValue: 0xFFE3F2FD, textColorValue: 0xFF1E88E5),
-  ],
-  reviews: [
-    BookReview(
-      reviewerName: 'Nadia K.',
-      reviewerAvatarUrl: '',
-      rating: 4,
-      comment: 'Creepy, atmospheric, and highly original. I couldn\'t put it down.',
-    ),
-  ],
-);
 
 class ExploreScreen extends StatefulWidget {
   const ExploreScreen({super.key});
@@ -66,9 +17,27 @@ class ExploreScreen extends StatefulWidget {
 }
 
 class _ExploreScreenState extends State<ExploreScreen> {
+  List<Book> _trending = [];
+  bool _trendingLoading = true;
+
   @override
   void initState() {
     super.initState();
+    _loadTrending();
+  }
+
+  Future<void> _loadTrending() async {
+    try {
+      final books = await RepositoryLocator.bookRepository.popularBooks();
+      if (!mounted) return;
+      setState(() {
+        _trending = books.take(5).toList();
+        _trendingLoading = false;
+      });
+    } on AppException {
+      if (!mounted) return;
+      setState(() => _trendingLoading = false);
+    }
   }
 
   @override
@@ -143,13 +112,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   Widget _buildTrendingLeaderboard(BuildContext context) {
-    final trendingBooks = [
-      mockGildedSpine,
-      mockShatteredEchoes,
-      MockBooks.echoOfStarlight,
-      MockBooks.midnightLibrary,
-      MockBooks.circe,
-    ];
+    final trendingBooks = _trending;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -190,7 +153,14 @@ class _ExploreScreenState extends State<ExploreScreen> {
         const SizedBox(height: 16),
         SizedBox(
           height: 330,
-          child: ListView.separated(
+          child: _trendingLoading
+              ? const Center(child: CircularProgressIndicator(color: AppTheme.primary))
+              : trendingBooks.isEmpty
+                  ? const Center(
+                      child: Text('No trending books right now.',
+                          style: TextStyle(fontFamily: 'Inter', color: Color(0xFF7A6B63), fontSize: 13)),
+                    )
+                  : ListView.separated(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
             itemCount: trendingBooks.length,

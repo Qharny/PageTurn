@@ -4,7 +4,8 @@ import 'package:flutter/material.dart';
 import '../../theme.dart';
 import '../../routes.dart';
 import '../../data/models/book_model.dart';
-import 'mock_books.dart';
+import '../../data/repositories/repository_locator.dart';
+import '../../core/errors/app_exception.dart';
 import '../common/widgets/book_cover.dart';
 import '../library/library_provider.dart';
 
@@ -19,23 +20,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Timer? _timer;
   String _remainingTime = '12h 00m 00s';
 
-  static const List<Book> _allBooks = [
-    MockBooks.echoOfStarlight,
-    MockBooks.midnightLibrary,
-    MockBooks.becoming,
-    MockBooks.circe,
-    MockBooks.alchemist,
-    MockBooks.projectHailMary,
-    MockBooks.homegoing,
-    MockBooks.thingsFallApart,
-    MockBooks.thinkingFastSlow,
-    MockBooks.educated,
-    MockBooks.normalPeople,
-    MockBooks.klaraSun,
-    MockBooks.dune,
-    MockBooks.atomicHabits,
-    MockBooks.greatGatsby,
-  ];
+  List<Book> _popular = [];
+  List<Book> _spotlight = [];
+  bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
@@ -44,6 +32,43 @@ class _HomeScreenState extends State<HomeScreen> {
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       _updateRemainingTime();
     });
+    _loadHomeData();
+  }
+
+  Future<void> _loadHomeData() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final popular = await RepositoryLocator.bookRepository.popularBooks();
+      List<Book> spotlight = [];
+      try {
+        spotlight = await RepositoryLocator.bookRepository.browseByTopic('african');
+      } on AppException {
+        spotlight = [];
+      }
+      debugPrint('TTS_DEBUG_HOME popular=${popular.length} spotlight=${spotlight.length}');
+      if (!mounted) return;
+      setState(() {
+        _popular = popular;
+        _spotlight = spotlight;
+        _loading = false;
+      });
+    } on AppException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.message;
+        _loading = false;
+      });
+    } catch (e) {
+      debugPrint('TTS_DEBUG_HOME unexpected error: $e');
+      if (!mounted) return;
+      setState(() {
+        _error = 'Something went wrong loading your home feed.';
+        _loading = false;
+      });
+    }
   }
 
   @override
@@ -71,12 +96,13 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Book _getBookOfTheDay() {
+  Book? _getBookOfTheDay() {
+    if (_popular.isEmpty) return null;
     final nowMs = DateTime.now().toUtc().millisecondsSinceEpoch;
     const twelveHoursMs = 12 * 60 * 60 * 1000;
     final period = nowMs ~/ twelveHoursMs;
-    final index = period % _allBooks.length;
-    return _allBooks[index];
+    final index = period % _popular.length;
+    return _popular[index];
   }
 
   @override
@@ -91,27 +117,46 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           SafeArea(
             bottom: false,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 12),
-                  _buildHeader(context),
-                  const SizedBox(height: 24),
-                  _buildBookOfTheDay(context),
-                  const SizedBox(height: 32),
-                  _buildContinueReading(context),
-                  const SizedBox(height: 32),
-                  _buildTrendingNow(context),
-                  const SizedBox(height: 32),
-                  _buildAfricanSpotlight(context),
-                  const SizedBox(height: 32),
-                  _buildRecommendedForYou(context),
-                  const SizedBox(height: 100),
-                ],
-              ),
-            ),
+            child: _loading
+                ? const Center(child: CircularProgressIndicator(color: AppTheme.primary))
+                : _error != null
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(_error!,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                      fontFamily: 'Inter', color: Color(0xFF7A6B63), fontSize: 13)),
+                              const SizedBox(height: 12),
+                              TextButton(onPressed: _loadHomeData, child: const Text('Retry')),
+                            ],
+                          ),
+                        ),
+                      )
+                    : SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 12),
+                            _buildHeader(context),
+                            const SizedBox(height: 24),
+                            _buildBookOfTheDay(context),
+                            const SizedBox(height: 32),
+                            _buildContinueReading(context),
+                            const SizedBox(height: 32),
+                            _buildTrendingNow(context),
+                            const SizedBox(height: 32),
+                            _buildAfricanSpotlight(context),
+                            const SizedBox(height: 32),
+                            _buildRecommendedForYou(context),
+                            const SizedBox(height: 100),
+                          ],
+                        ),
+                      ),
           ),
         ],
       ),
@@ -171,6 +216,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildBookOfTheDay(BuildContext context) {
     final book = _getBookOfTheDay();
+    if (book == null) return const SizedBox.shrink();
     return GestureDetector(
       onTap: () {
         Navigator.of(context).pushNamed(AppRoutes.details, arguments: book);
@@ -265,7 +311,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              book.description,
+              book.description.isNotEmpty ? book.description : 'A free public-domain classic from Project Gutenberg.',
               style: const TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 13,
@@ -379,14 +425,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Row(
                 children: [
                   if (readingBooks.isEmpty) ...[
-                    _buildContinueReadingCard(
-                      context,
-                      book: MockBooks.becoming,
-                      progress: 0.45,
-                      progressText: '192/426 pages',
-                    ),
-                    const SizedBox(width: 16),
-                    _buildContinueReadingCardPlaceholder(),
+                    _buildNoBooksInProgressCard(context),
                   ] else ...[
                     ...readingBooks.map((book) {
                       final pagesText = book.length.replaceAll('p', '');
@@ -531,6 +570,54 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildNoBooksInProgressCard(BuildContext context) {
+    return GestureDetector(
+      onTap: () => Navigator.of(context).pushNamed(AppRoutes.ebooks),
+      child: Container(
+        width: 270,
+        height: 94,
+        decoration: BoxDecoration(
+          color: const Color(0xFFF0EBE3).withValues(alpha: 0.4),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE2DDD5), width: 1.5),
+        ),
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            const Icon(Icons.auto_stories_rounded, color: Color(0xFF7A6B63), size: 28),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    'Nothing in progress yet',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF5C3826),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Tap to browse the catalog',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 11,
+                      color: const Color(0xFF7A6B63).withValues(alpha: 0.8),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildContinueReadingCardPlaceholder() {
     return Container(
       width: 80,
@@ -579,47 +666,10 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildBookCoverCard(
-                context,
-                book: MockBooks.echoOfStarlight,
-              ),
-              const SizedBox(width: 16),
-              _buildBookCoverCard(
-                context,
-                book: MockBooks.circe,
-              ),
-              const SizedBox(width: 16),
-              _buildBookCoverCard(
-                context,
-                book: MockBooks.alchemist,
-              ),
-              const SizedBox(width: 16),
-              // Render Project Hail Mary as Custom Cover in Code!
-              _buildCustomCoverCard(
-                context,
-                book: MockBooks.projectHailMary,
-                startColor: const Color(0xFFFFECB3),
-                endColor: const Color(0xFFFFB300),
-                coverChild: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.rocket_launch_rounded, color: Colors.white, size: 28),
-                    const SizedBox(height: 12),
-                    Text(
-                      'HAIL MARY'.replaceAll(' ', '\n'),
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontFamily: 'Literata',
-                        fontSize: 13,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                        letterSpacing: 1.0,
-                        height: 1.1,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              for (final book in _popular.take(4)) ...[
+                _buildBookCoverCard(context, book: book),
+                const SizedBox(width: 16),
+              ],
             ],
           ),
         ),
@@ -690,72 +740,8 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildCustomCoverCard(
-    BuildContext context, {
-    required Book book,
-    required Color startColor,
-    required Color endColor,
-    required Widget coverChild,
-  }) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.of(context).pushNamed(AppRoutes.details, arguments: book);
-      },
-      child: SizedBox(
-        width: 110,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              height: 160,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [startColor, endColor],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Colors.black12,
-                    blurRadius: 6,
-                    offset: Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: Center(child: coverChild),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              book.title,
-              style: const TextStyle(
-                fontFamily: 'Literata',
-                fontFamilyFallback: ['serif'],
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF5C3826),
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 2),
-            Text(
-              book.author,
-              style: const TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 10,
-                color: Color(0xFF7A6B63),
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildAfricanSpotlight(BuildContext context) {
+    if (_spotlight.isEmpty) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -808,17 +794,16 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 16),
         // Spotlight Books
-        _buildSpotlightBookRow(
-          context,
-          book: MockBooks.homegoing,
-          description: 'A novel of breathtaking sweep and emotional power that traces three...',
-        ),
-        const SizedBox(height: 16),
-        _buildSpotlightBookRow(
-          context,
-          book: MockBooks.thingsFallApart,
-          description: 'The quintessential African novel that depicts the clash between...',
-        ),
+        for (final book in _spotlight.take(2)) ...[
+          _buildSpotlightBookRow(
+            context,
+            book: book,
+            description: book.description.isNotEmpty
+                ? book.description
+                : 'A celebrated work of African literature, free to read.',
+          ),
+          const SizedBox(height: 16),
+        ],
       ],
     );
   }
@@ -919,6 +904,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildRecommendedForYou(BuildContext context) {
+    final recommended = _popular.skip(4).take(4).toList();
+    if (recommended.isEmpty) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -934,134 +921,79 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 16),
         // Grid constructed manually using Columns/Rows to avoid nested scroll issues
-        Column(
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: _buildCustomCoverCard(
-                    context,
-                    book: MockBooks.thinkingFastSlow,
-                    startColor: const Color(0xFF78909C),
-                    endColor: const Color(0xFF37474F),
-                    coverChild: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(Icons.psychology_alt_rounded, color: Colors.white, size: 28),
-                        SizedBox(height: 10),
-                        Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 8.0),
-                          child: Text(
-                            'THINKING\nFAST & SLOW',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontFamily: 'Literata',
-                              fontSize: 9,
-                              fontWeight: FontWeight.w900,
-                              color: Colors.white,
-                              letterSpacing: 0.5,
-                              height: 1.2,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+        for (var i = 0; i < recommended.length; i += 2) ...[
+          if (i > 0) const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(child: _buildGridCoverCard(context, book: recommended[i])),
+              if (i + 1 < recommended.length) ...[
                 const SizedBox(width: 16),
-                Expanded(
-                  child: _buildCustomCoverCard(
-                    context,
-                    book: MockBooks.educated,
-                    startColor: const Color(0xFFECEFF1),
-                    endColor: const Color(0xFFB0BEC5),
-                    coverChild: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Transform.rotate(
-                          angle: -math.pi / 4,
-                          child: const Icon(Icons.edit_rounded, color: Color(0xFF2C3E50), size: 28),
-                        ),
-                        const SizedBox(height: 10),
-                        const Text(
-                          'EDUCATED',
-                          style: TextStyle(
-                            fontFamily: 'Literata',
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF2C3E50),
-                            letterSpacing: 1.0,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildCustomCoverCard(
-                    context,
-                    book: MockBooks.normalPeople,
-                    startColor: const Color(0xFFE8F5E9),
-                    endColor: const Color(0xFF2E7D32),
-                    coverChild: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(Icons.sailing_rounded, color: Colors.white, size: 28),
-                        SizedBox(height: 10),
-                        Text(
-                          'NORMAL\nPEOPLE',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontFamily: 'Literata',
-                            fontSize: 10,
-                            fontWeight: FontWeight.w900,
-                            color: Colors.white,
-                            letterSpacing: 0.5,
-                            height: 1.2,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildCustomCoverCard(
-                    context,
-                    book: MockBooks.klaraSun,
-                    startColor: const Color(0xFFFFFDE7),
-                    endColor: const Color(0xFFFBC02D),
-                    coverChild: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(Icons.wb_sunny_rounded, color: Colors.white, size: 28),
-                        SizedBox(height: 10),
-                        Text(
-                          'KLARA & THE SUN',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontFamily: 'Literata',
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF5C3826),
-                            letterSpacing: 0.5,
-                            height: 1.2,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+                Expanded(child: _buildGridCoverCard(context, book: recommended[i + 1])),
+              ] else
+                const Spacer(),
+            ],
+          ),
+        ],
       ],
+    );
+  }
+
+  Widget _buildGridCoverCard(BuildContext context, {required Book book}) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.of(context).pushNamed(AppRoutes.details, arguments: book);
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AspectRatio(
+            aspectRatio: 0.72,
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 6,
+                    offset: Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: BookCover(
+                coverAsset: book.coverAsset,
+                coverUrl: book.coverUrl,
+                title: book.title,
+                fit: BoxFit.cover,
+                borderRadius: 12,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            book.title,
+            style: const TextStyle(
+              fontFamily: 'Literata',
+              fontFamilyFallback: ['serif'],
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF5C3826),
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            book.author,
+            style: const TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 10,
+              color: Color(0xFF7A6B63),
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
     );
   }
 }

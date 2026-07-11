@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../theme.dart';
 import '../../data/models/book_model.dart';
+import '../../data/repositories/repository_locator.dart';
+import '../../core/errors/app_exception.dart';
 import '../common/widgets/book_cover.dart';
-import '../home/mock_books.dart';
 import '../../routes.dart';
 
 class EBooksScreen extends StatefulWidget {
@@ -15,17 +16,41 @@ class EBooksScreen extends StatefulWidget {
 class _EBooksScreenState extends State<EBooksScreen> {
   int _selectedCategory = 0;
   final List<String> _categories = ['All', 'Fiction', 'Non-Fiction', 'Biography'];
+  final List<String?> _categoryTopics = [null, 'fiction', 'nonfiction', 'biography'];
 
-  final List<Book> _ebooks = [
-    MockBooks.midnightLibrary,
-    MockBooks.circe,
-    MockBooks.becoming,
-    MockBooks.dune,
-    MockBooks.greatGatsby,
-    MockBooks.thingsFallApart,
-    MockBooks.alchemist,
-    MockBooks.atomicHabits,
-  ];
+  List<Book> _ebooks = [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final topic = _categoryTopics[_selectedCategory];
+      final books = topic == null
+          ? await RepositoryLocator.bookRepository.popularBooks()
+          : await RepositoryLocator.bookRepository.browseByTopic(topic);
+      if (!mounted) return;
+      setState(() {
+        _ebooks = books;
+        _loading = false;
+      });
+    } on AppException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.message;
+        _loading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,22 +64,43 @@ class _EBooksScreenState extends State<EBooksScreen> {
             const SizedBox(height: 16),
             _buildCategoryTabs(),
             const SizedBox(height: 20),
-            Expanded(
-              child: GridView.builder(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  childAspectRatio: 0.58,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                ),
-                itemCount: _ebooks.length,
-                itemBuilder: (context, index) => _buildBookCard(context, _ebooks[index]),
-              ),
-            ),
+            Expanded(child: _buildBody()),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator(color: AppTheme.primary));
+    }
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(_error!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontFamily: 'Inter', color: Color(0xFF7A6B63), fontSize: 13)),
+        ),
+      );
+    }
+    if (_ebooks.isEmpty) {
+      return const Center(
+        child: Text('No books found in this category.',
+            style: TextStyle(fontFamily: 'Inter', color: Color(0xFF7A6B63), fontSize: 13)),
+      );
+    }
+    return GridView.builder(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 0.58,
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+      ),
+      itemCount: _ebooks.length,
+      itemBuilder: (context, index) => _buildBookCard(context, _ebooks[index]),
     );
   }
 
@@ -114,7 +160,11 @@ class _EBooksScreenState extends State<EBooksScreen> {
         itemBuilder: (context, index) {
           final isSelected = _selectedCategory == index;
           return GestureDetector(
-            onTap: () => setState(() => _selectedCategory = index),
+            onTap: () {
+              if (_selectedCategory == index) return;
+              setState(() => _selectedCategory = index);
+              _load();
+            },
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),

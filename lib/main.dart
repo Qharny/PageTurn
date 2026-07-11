@@ -13,7 +13,7 @@ import 'presentation/reading_clubs/reading_club_provider.dart';
 import 'data/models/book_model.dart';
 import 'data/repositories/repository_locator.dart';
 import 'core/errors/app_exception.dart';
-import 'presentation/home/mock_books.dart';
+import 'presentation/common/widgets/book_cover.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -277,6 +277,11 @@ class _AddBottomSheetContentState extends State<_AddBottomSheetContent> with Sin
   // Set of successfully added catalog book IDs (to display checkmark animation)
   final Set<String> _addedCatalogIds = {};
 
+  // Catalog tab (popular books) state
+  List<Book> _catalogBooks = [];
+  bool _catalogLoading = true;
+  String? _catalogError;
+
   // Google Books quick-add search state
   final _googleSearchController = TextEditingController();
   List<Book> _googleResults = [];
@@ -292,6 +297,28 @@ class _AddBottomSheetContentState extends State<_AddBottomSheetContent> with Sin
   void initState() {
     super.initState();
     _tabController = TabController(length: 5, vsync: this);
+    _loadCatalog();
+  }
+
+  Future<void> _loadCatalog() async {
+    setState(() {
+      _catalogLoading = true;
+      _catalogError = null;
+    });
+    try {
+      final books = await RepositoryLocator.bookRepository.popularBooks();
+      if (!mounted) return;
+      setState(() {
+        _catalogBooks = books;
+        _catalogLoading = false;
+      });
+    } on AppException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _catalogError = e.message;
+        _catalogLoading = false;
+      });
+    }
   }
 
   @override
@@ -421,29 +448,22 @@ class _AddBottomSheetContentState extends State<_AddBottomSheetContent> with Sin
   }
 
   Widget _buildCatalogTab() {
-    final allMockBooks = [
-      MockBooks.echoOfStarlight,
-      MockBooks.midnightLibrary,
-      MockBooks.becoming,
-      MockBooks.circe,
-      MockBooks.alchemist,
-      MockBooks.projectHailMary,
-      MockBooks.homegoing,
-      MockBooks.thingsFallApart,
-      MockBooks.thinkingFastSlow,
-      MockBooks.educated,
-      MockBooks.normalPeople,
-      MockBooks.klaraSun,
-      MockBooks.dune,
-      MockBooks.atomicHabits,
-      MockBooks.greatGatsby,
-    ];
+    if (_catalogLoading) {
+      return const Center(child: CircularProgressIndicator(color: AppTheme.primary));
+    }
+    if (_catalogError != null) {
+      return Center(
+        child: Text(_catalogError!,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontFamily: 'Inter', color: Color(0xFF7A6B63), fontSize: 13)),
+      );
+    }
 
     return ListenableBuilder(
       listenable: LibraryProvider.instance,
       builder: (context, _) {
         final libraryIds = LibraryProvider.instance.books.map((b) => b.id).toSet();
-        final availableBooks = allMockBooks.where((b) => !libraryIds.contains(b.id)).toList();
+        final availableBooks = _catalogBooks.where((b) => !libraryIds.contains(b.id)).toList();
 
         if (availableBooks.isEmpty) {
           return const Center(
@@ -522,25 +542,12 @@ class _AddBottomSheetContentState extends State<_AddBottomSheetContent> with Sin
                                     ),
                                   ],
                                 ),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: Image.asset(
-                                    book.coverAsset,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) => Container(
-                                      color: const Color(0xFF2C3E50),
-                                      child: Center(
-                                        child: Text(
-                                          book.title,
-                                          textAlign: TextAlign.center,
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 10,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
+                                child: BookCover(
+                                  coverAsset: book.coverAsset,
+                                  coverUrl: book.coverUrl,
+                                  title: book.title,
+                                  fit: BoxFit.cover,
+                                  borderRadius: 12,
                                 ),
                               ),
                               if (isAdded)

@@ -1,5 +1,6 @@
 import '../../domain/repositories/audio_repository.dart';
 import '../../domain/repositories/book_repository.dart';
+import '../sources/local/api_cache_source.dart';
 import '../sources/local/hive_local_source.dart';
 import '../sources/remote/google_books_source.dart';
 import '../sources/remote/gutendex_source.dart';
@@ -16,26 +17,37 @@ class RepositoryLocator {
   RepositoryLocator._();
 
   static final HiveLocalSource localSource = HiveLocalSource();
+  static final ApiCacheSource apiCache = ApiCacheSource();
 
-  static final GutendexSource _gutendex = GutendexSource();
-  static final GoogleBooksSource _googleBooks = GoogleBooksSource();
-  static final LibriVoxSource _libriVox = LibriVoxSource();
-  static final LocalEpubImportSource _importSource = LocalEpubImportSource();
+  /// Mutable (rather than the repositories below) so tests can swap in a
+  /// fake `http.Client`-backed source before the app first touches
+  /// [bookRepository]/[audioRepository] — mirrors `init`'s existing
+  /// `testDirectoryPath` seam for Hive.
+  static GutendexSource gutendex = GutendexSource();
+  static GoogleBooksSource googleBooks = GoogleBooksSource();
+  static LibriVoxSource libriVox = LibriVoxSource();
+  static LocalEpubImportSource importSource = LocalEpubImportSource();
 
-  static final BookRepository bookRepository = BookRepositoryImpl(
-    gutendex: _gutendex,
-    googleBooks: _googleBooks,
-    localSource: localSource,
-    importSource: _importSource,
-  );
+  static BookRepository? _bookRepository;
+  static BookRepository get bookRepository => _bookRepository ??= BookRepositoryImpl(
+        gutendex: gutendex,
+        googleBooks: googleBooks,
+        localSource: localSource,
+        importSource: importSource,
+        cache: apiCache,
+      );
 
-  static final AudioRepository audioRepository = AudioRepositoryImpl(
-    libriVox: _libriVox,
-    googleBooks: _googleBooks,
-    localSource: localSource,
-  );
+  static AudioRepository? _audioRepository;
+  static AudioRepository get audioRepository => _audioRepository ??= AudioRepositoryImpl(
+        libriVox: libriVox,
+        googleBooks: googleBooks,
+        localSource: localSource,
+        cache: apiCache,
+      );
 
-  /// Must complete before any repository call — opens the local Hive index.
-  static Future<void> init({String? testDirectoryPath}) =>
-      localSource.init(testDirectoryPath: testDirectoryPath);
+  /// Must complete before any repository call — opens the local Hive boxes.
+  static Future<void> init({String? testDirectoryPath}) async {
+    await localSource.init(testDirectoryPath: testDirectoryPath);
+    await apiCache.init();
+  }
 }

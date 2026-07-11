@@ -2,13 +2,11 @@
 class AppConfig {
   AppConfig._();
 
-  /// When true, the library's demo seed books ([MockBooks]) are shown
-  /// alongside anything real that's been downloaded/imported/quick-added.
-  /// This only affects the initial Library seed list — search, audiobook
+  /// Kept for backward compatibility; the library no longer seeds demo
+  /// books, so this flag currently has no effect. Search, audiobook
   /// browsing, quick-add, and EPUB import always use the real Gutendex/
-  /// LibriVox/Google Books sources regardless of this flag. Keeping it true
-  /// preserves the existing demo experience out of the box.
-  static const bool useMockData = true;
+  /// LibriVox/Google Books sources.
+  static const bool useMockData = false;
 
   static const String gutendexBaseUrl = 'https://gutendex.com';
   static const String libriVoxBaseUrl = 'https://librivox.org/api/feed/audiobooks';

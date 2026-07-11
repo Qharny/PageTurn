@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../theme.dart';
-import '../home/mock_books.dart';
 import '../../routes.dart';
 import 'profile_provider.dart';
 import '../../data/models/book_model.dart';
 import '../common/widgets/book_cover.dart';
+import '../library/library_provider.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -434,93 +434,105 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   // ─── LIBRARY TAB ──────────────────────────────────────────────────────────
   Widget _buildLibraryTab() {
-    final currentlyReading = [
-      MockBooks.midnightLibrary,
-      MockBooks.becoming,
-      MockBooks.dune,
-    ];
-    final finished = [
-      MockBooks.greatGatsby,
-      MockBooks.atomicHabits,
-    ];
+    return ListenableBuilder(
+      listenable: LibraryProvider.instance,
+      builder: (context, _) {
+        final books = LibraryProvider.instance.books;
+        final currentlyReading =
+            books.where((b) => b.progress != null && b.progress! > 0 && b.isFinished != true).toList();
+        final finished = books.where((b) => b.isFinished == true).toList();
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 80),
-      physics: const BouncingScrollPhysics(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Reading goal card
-          _buildReadingGoalCard(),
-          const SizedBox(height: 24),
+        return SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 80),
+          physics: const BouncingScrollPhysics(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Reading goal card
+              _buildReadingGoalCard(),
+              const SizedBox(height: 24),
 
-          const Text(
-            'Currently Reading',
-            style: TextStyle(
-              fontFamily: 'Literata',
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: _chocolateBrown,
-            ),
-          ),
-          const SizedBox(height: 14),
-          ...currentlyReading.map((book) => _buildReadingBookCard(book)),
+              const Text(
+                'Currently Reading',
+                style: TextStyle(
+                  fontFamily: 'Literata',
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: _chocolateBrown,
+                ),
+              ),
+              const SizedBox(height: 14),
+              if (currentlyReading.isEmpty)
+                const Text(
+                  'Nothing in progress yet.',
+                  style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: _mutedText),
+                )
+              else
+                ...currentlyReading.map((book) => _buildReadingBookCard(book)),
 
-          const SizedBox(height: 24),
-          const Text(
-            'Finished',
-            style: TextStyle(
-              fontFamily: 'Literata',
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: _chocolateBrown,
-            ),
-          ),
-          const SizedBox(height: 14),
-          SizedBox(
-            height: 170,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: finished.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 12),
-              itemBuilder: (context, i) {
-                final book = finished[i];
-                return GestureDetector(
-                  onTap: () => Navigator.pushNamed(context, AppRoutes.details, arguments: book),
-                  child: Stack(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: BookCover(
-                          coverAsset: book.coverAsset,
-                          coverUrl: book.coverUrl,
-                          title: book.title,
-                          width: 110,
-                          height: 165,
-                          fit: BoxFit.cover,
-                          borderRadius: 0,
+              const SizedBox(height: 24),
+              const Text(
+                'Finished',
+                style: TextStyle(
+                  fontFamily: 'Literata',
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: _chocolateBrown,
+                ),
+              ),
+              const SizedBox(height: 14),
+              if (finished.isEmpty)
+                const Text(
+                  'No finished books yet.',
+                  style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: _mutedText),
+                )
+              else
+                SizedBox(
+                  height: 170,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: finished.length,
+                    separatorBuilder: (_, _) => const SizedBox(width: 12),
+                    itemBuilder: (context, i) {
+                      final book = finished[i];
+                      return GestureDetector(
+                        onTap: () => Navigator.pushNamed(context, AppRoutes.details, arguments: book),
+                        child: Stack(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: BookCover(
+                                coverAsset: book.coverAsset,
+                                coverUrl: book.coverUrl,
+                                title: book.title,
+                                width: 110,
+                                height: 165,
+                                fit: BoxFit.cover,
+                                borderRadius: 0,
+                              ),
+                            ),
+                            Positioned(
+                              top: 8,
+                              right: 8,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: const BoxDecoration(
+                                  color: AppTheme.tertiary,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.check_rounded, color: Colors.white, size: 12),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: const BoxDecoration(
-                            color: AppTheme.tertiary,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.check_rounded, color: Colors.white, size: 12),
-                        ),
-                      ),
-                    ],
+                      );
+                    },
                   ),
-                );
-              },
-            ),
+                ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 

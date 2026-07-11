@@ -78,10 +78,10 @@ class Book {
       language: json['language'] as String? ?? 'Eng',
       description: json['description'] as String? ?? '',
       tags: (json['tags'] as List<dynamic>? ?? [])
-          .map((t) => BookTag.fromJson(t as Map<String, dynamic>))
+          .map((t) => BookTag.fromJson(Map<String, dynamic>.from(t as Map)))
           .toList(),
       reviews: (json['reviews'] as List<dynamic>? ?? [])
-          .map((r) => BookReview.fromJson(r as Map<String, dynamic>))
+          .map((r) => BookReview.fromJson(Map<String, dynamic>.from(r as Map)))
           .toList(),
       progress: (json['progress'] as num?)?.toDouble(),
       isFinished: json['isFinished'] as bool?,
@@ -98,7 +98,7 @@ class Book {
       isbn: json['isbn'] as String?,
       localFilePath: json['localFilePath'] as String?,
       audioChapters: (json['audioChapters'] as List<dynamic>?)
-          ?.map((c) => AudiobookChapter.fromJson(c as Map<String, dynamic>))
+          ?.map((c) => AudiobookChapter.fromJson(Map<String, dynamic>.from(c as Map)))
           .toList(),
     );
   }

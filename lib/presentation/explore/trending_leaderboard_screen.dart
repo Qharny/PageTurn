@@ -1,32 +1,55 @@
 import 'package:flutter/material.dart';
 import '../../theme.dart';
 import '../../data/models/book_model.dart';
+import '../../data/repositories/repository_locator.dart';
+import '../../core/errors/app_exception.dart';
 import '../../routes.dart';
 import '../common/widgets/book_cover.dart';
-import '../home/mock_books.dart';
-import 'explore_screen.dart' show mockGildedSpine, mockShatteredEchoes;
 
 /// Full "View All" page for the Explore screen's Trending Leaderboard.
 /// Shows the complete ranked list of trending books.
-class TrendingLeaderboardScreen extends StatelessWidget {
+class TrendingLeaderboardScreen extends StatefulWidget {
   const TrendingLeaderboardScreen({super.key});
 
+  @override
+  State<TrendingLeaderboardScreen> createState() => _TrendingLeaderboardScreenState();
+}
+
+class _TrendingLeaderboardScreenState extends State<TrendingLeaderboardScreen> {
   static const _ink = Color(0xFF1E1E1E);
   static const _mutedText = Color(0xFF7A6B63);
   static const _chocolateBrown = Color(0xFF5C3826);
 
-  static const List<Book> _books = [
-    mockGildedSpine,
-    mockShatteredEchoes,
-    MockBooks.echoOfStarlight,
-    MockBooks.midnightLibrary,
-    MockBooks.circe,
-    MockBooks.alchemist,
-    MockBooks.projectHailMary,
-    MockBooks.dune,
-    MockBooks.homegoing,
-    MockBooks.becoming,
-  ];
+  List<Book> _books = [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final books = await RepositoryLocator.bookRepository.popularBooks();
+      if (!mounted) return;
+      setState(() {
+        _books = books.take(10).toList();
+        _loading = false;
+      });
+    } on AppException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.message;
+        _loading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,19 +61,39 @@ class TrendingLeaderboardScreen extends StatelessWidget {
           children: [
             _buildHeader(context),
             const SizedBox(height: 8),
-            Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-                physics: const BouncingScrollPhysics(),
-                itemCount: _books.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 12),
-                itemBuilder: (context, index) =>
-                    _buildRankRow(context, _books[index], index + 1),
-              ),
-            ),
+            Expanded(child: _buildBody()),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator(color: AppTheme.primary));
+    }
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(_error!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontFamily: 'Inter', color: _mutedText, fontSize: 13)),
+        ),
+      );
+    }
+    if (_books.isEmpty) {
+      return const Center(
+        child: Text('No trending books right now.',
+            style: TextStyle(fontFamily: 'Inter', color: _mutedText, fontSize: 13)),
+      );
+    }
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+      physics: const BouncingScrollPhysics(),
+      itemCount: _books.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 12),
+      itemBuilder: (context, index) => _buildRankRow(context, _books[index], index + 1),
     );
   }
 

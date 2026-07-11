@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart' show compute;
 import 'package:flutter/material.dart';
 import '../../theme.dart';
 import '../../routes.dart';
 import '../../data/models/book_model.dart';
 import '../common/widgets/book_cover.dart';
 import '../../services/audio_service.dart';
+import '../../services/tts_service.dart';
 
 class AudioPlayerScreen extends StatefulWidget {
   const AudioPlayerScreen({super.key, required this.book});
@@ -35,12 +37,18 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen> with SingleTicker
 
   bool get _hasRealAudio => widget.book.audioChapters != null && widget.book.audioChapters!.isNotEmpty;
 
-  final List<String> _personas = [
-    'BRITISH SCHOLAR',
-    'COZY STORYTELLER',
-    'DEEP BARITONE',
-    'CLASSIC NARRATOR',
-  ];
+  // AI-narration (text-to-speech) — active for text ebooks with a
+  // downloaded/imported EPUB but no real human narration available.
+  TtsService? _ttsService;
+  bool _ttsPreparing = false;
+  bool get _hasTextContent =>
+      !_hasRealAudio && widget.book.localFilePath != null && widget.book.localFilePath!.isNotEmpty;
+  bool get _hasLiveTrack => _hasRealAudio || _hasTextContent;
+
+  List<String> get _personas => ttsPersonas.map((p) => p.name).toList();
+
+  TtsPersona _personaFor(String name) =>
+      ttsPersonas.firstWhere((p) => p.name == name, orElse: () => ttsPersonas.first);
 
   @override
   void initState() {
@@ -51,6 +59,8 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen> with SingleTicker
     );
     if (_hasRealAudio) {
       _initRealAudio();
+    } else if (_hasTextContent) {
+      _initTts();
     }
   }
 
@@ -84,6 +94,41 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen> with SingleTicker
     }
   }
 
+  Future<void> _initTts() async {
+    setState(() => _ttsPreparing = true);
+    final service = TtsService();
+    _ttsService = service;
+    _positionSub = service.positionStream.listen((p) {
+      if (mounted) setState(() => _realPosition = p);
+    });
+    _durationSub = service.durationStream.listen((d) {
+      if (mounted) setState(() => _realDuration = d ?? Duration.zero);
+    });
+    _playingSub = service.playingStream.listen((playing) {
+      if (mounted) {
+        setState(() => _isPlaying = playing);
+        if (playing) {
+          _barsController.repeat();
+        } else {
+          _barsController.stop();
+        }
+      }
+    });
+    try {
+      final data = await compute(prepareTtsChapters, widget.book.localFilePath!);
+      service.loadChapters(data.titles, data.texts);
+      await service.setPersona(_personaFor(_selectedPersona));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not prepare this book for AI narration.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _ttsPreparing = false);
+    }
+  }
+
   @override
   void dispose() {
     _barsController.dispose();
@@ -91,13 +136,20 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen> with SingleTicker
     _durationSub?.cancel();
     _playingSub?.cancel();
     _audioService?.dispose();
+    _ttsService?.dispose();
     super.dispose();
   }
 
   void _togglePlay() {
-    final service = _audioService;
-    if (service != null) {
-      service.isPlaying ? service.pause() : service.play();
+    if (_ttsPreparing) return;
+    final audio = _audioService;
+    if (audio != null) {
+      audio.isPlaying ? audio.pause() : audio.play();
+      return;
+    }
+    final tts = _ttsService;
+    if (tts != null) {
+      tts.isPlaying ? tts.pause() : tts.play();
       return;
     }
     setState(() {
@@ -123,6 +175,7 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen> with SingleTicker
       }
     });
     _audioService?.setSpeed(_speed);
+    _ttsService?.setSpeed(_speed);
   }
 
   String _formatDuration(Duration d) {
@@ -168,6 +221,7 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen> with SingleTicker
                         setState(() {
                           _selectedPersona = persona;
                         });
+                        _ttsService?.setPersona(_personaFor(persona));
                         Navigator.pop(context);
                       },
                       contentPadding: EdgeInsets.zero,
@@ -271,7 +325,11 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen> with SingleTicker
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  _audioService?.currentChapter?.title ?? 'Chapter 4: The Alchemist\'s Secret',
+                  _ttsPreparing
+                      ? 'Preparing AI narration…'
+                      : _audioService?.currentChapter?.title ??
+                          _ttsService?.currentChapterTitle ??
+                          'Chapter 4: The Alchemist\'s Secret',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -382,7 +440,11 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen> with SingleTicker
         ),
         const SizedBox(height: 6),
         Text(
-          _hasRealAudio ? widget.book.author : '${widget.book.author} • Narrated by Simon Vance',
+          _hasRealAudio
+              ? widget.book.author
+              : _hasTextContent
+                  ? '${widget.book.author} • AI narration'
+                  : '${widget.book.author} • Narrated by Simon Vance',
           textAlign: TextAlign.center,
           style: const TextStyle(
             fontFamily: 'Inter',
@@ -444,8 +506,12 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen> with SingleTicker
             final Offset localPos = box.globalToLocal(details.globalPosition);
             final double width = box.size.width - 48; // padding margins
             final target = ((localPos.dx - 24) / width).clamp(0.0, 1.0);
-            if (_hasRealAudio && _realDuration > Duration.zero) {
-              _audioService?.seek(_realDuration * target);
+            if (_hasLiveTrack && _realDuration > Duration.zero) {
+              if (_hasRealAudio) {
+                _audioService?.seek(_realDuration * target);
+              } else {
+                _ttsService?.seek(_realDuration * target);
+              }
             } else {
               setState(() => _playbackProgress = target);
             }
@@ -472,7 +538,7 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen> with SingleTicker
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              _hasRealAudio ? _formatDuration(_realPosition) : '12:45',
+              _hasLiveTrack ? _formatDuration(_realPosition) : '12:45',
               style: const TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 11,
@@ -481,7 +547,7 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen> with SingleTicker
               ),
             ),
             Text(
-              _hasRealAudio ? '-${_formatDuration(_realDuration - _realPosition)}' : '-24:15',
+              _hasLiveTrack ? '-${_formatDuration(_realDuration - _realPosition)}' : '-24:15',
               style: const TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 11,
@@ -496,7 +562,7 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen> with SingleTicker
   }
 
   double get _currentProgress {
-    if (_hasRealAudio && _realDuration > Duration.zero) {
+    if (_hasLiveTrack && _realDuration > Duration.zero) {
       return (_realPosition.inMilliseconds / _realDuration.inMilliseconds).clamp(0.0, 1.0);
     }
     return _playbackProgress;
@@ -508,14 +574,17 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen> with SingleTicker
       children: [
         IconButton(
           icon: const Icon(Icons.skip_previous_rounded, color: Color(0xFF5C3826), size: 28),
-          onPressed: _hasRealAudio ? () => _audioService?.skipToPrevious() : null,
+          onPressed: _hasLiveTrack
+              ? () => _hasRealAudio ? _audioService?.skipToPrevious() : _ttsService?.skipToPrevious()
+              : null,
         ),
         IconButton(
           icon: const Icon(Icons.replay_10_rounded, color: Color(0xFF5C3826), size: 28),
           onPressed: () {
-            if (_hasRealAudio) {
+            if (_hasLiveTrack) {
               final target = _realPosition - const Duration(seconds: 10);
-              _audioService?.seek(target.isNegative ? Duration.zero : target);
+              final clamped = target.isNegative ? Duration.zero : target;
+              _hasRealAudio ? _audioService?.seek(clamped) : _ttsService?.seek(clamped);
             } else {
               setState(() {
                 _playbackProgress = math.max(0.0, _playbackProgress - 0.05);
@@ -540,19 +609,25 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen> with SingleTicker
                 ),
               ],
             ),
-            child: Icon(
-              _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-              color: Colors.white,
-              size: 40,
-            ),
+            child: _ttsPreparing
+                ? const Padding(
+                    padding: EdgeInsets.all(20),
+                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                  )
+                : Icon(
+                    _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                    color: Colors.white,
+                    size: 40,
+                  ),
           ),
         ),
         IconButton(
           icon: const Icon(Icons.forward_30_rounded, color: Color(0xFF5C3826), size: 28),
           onPressed: () {
-            if (_hasRealAudio) {
+            if (_hasLiveTrack) {
               final target = _realPosition + const Duration(seconds: 30);
-              _audioService?.seek(target > _realDuration ? _realDuration : target);
+              final clamped = target > _realDuration ? _realDuration : target;
+              _hasRealAudio ? _audioService?.seek(clamped) : _ttsService?.seek(clamped);
             } else {
               setState(() {
                 _playbackProgress = math.min(1.0, _playbackProgress + 0.08);
@@ -562,7 +637,9 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen> with SingleTicker
         ),
         IconButton(
           icon: const Icon(Icons.skip_next_rounded, color: Color(0xFF5C3826), size: 28),
-          onPressed: _hasRealAudio ? () => _audioService?.skipToNext() : null,
+          onPressed: _hasLiveTrack
+              ? () => _hasRealAudio ? _audioService?.skipToNext() : _ttsService?.skipToNext()
+              : null,
         ),
       ],
     );

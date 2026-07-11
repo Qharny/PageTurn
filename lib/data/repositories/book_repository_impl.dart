@@ -10,6 +10,7 @@ import '../../config/env.dart';
 import '../../core/errors/app_exception.dart';
 import '../../domain/entities/book.dart';
 import '../../domain/repositories/book_repository.dart';
+import '../sources/local/api_cache_source.dart';
 import '../sources/local/hive_local_source.dart';
 import '../sources/remote/google_books_source.dart';
 import '../sources/remote/gutendex_source.dart';
@@ -20,6 +21,7 @@ class BookRepositoryImpl implements BookRepository {
   final GoogleBooksSource _googleBooks;
   final HiveLocalSource _localSource;
   final LocalEpubImportSource _importSource;
+  final ApiCacheSource _cache;
   final http.Client _downloadClient;
 
   BookRepositoryImpl({
@@ -27,47 +29,67 @@ class BookRepositoryImpl implements BookRepository {
     required GoogleBooksSource googleBooks,
     required HiveLocalSource localSource,
     required LocalEpubImportSource importSource,
+    required ApiCacheSource cache,
     http.Client? downloadClient,
   })  : _gutendex = gutendex,
         _googleBooks = googleBooks,
         _localSource = localSource,
         _importSource = importSource,
+        _cache = cache,
         _downloadClient = downloadClient ?? http.Client();
 
   @override
   Future<List<Book>> searchBooks(String query, {int page = 1}) async {
-    final result = await _gutendex.searchBooks(query, page: page);
-    return _mergeWithLocalState(result.books.map((b) => b.toEntity()).toList());
+    final books = await _cache.cachedList('gutendex_search_${query.toLowerCase()}_p$page', () async {
+      final result = await _gutendex.searchBooks(query, page: page);
+      return result.books.map((b) => b.toEntity()).toList();
+    });
+    return _mergeWithLocalState(books);
   }
 
   @override
   Future<List<Book>> browseByTopic(String topic, {int page = 1}) async {
-    final result = await _gutendex.browseByTopic(topic, page: page);
-    return _mergeWithLocalState(result.books.map((b) => b.toEntity()).toList());
+    final books = await _cache.cachedList('gutendex_topic_${topic.toLowerCase()}_p$page', () async {
+      final result = await _gutendex.browseByTopic(topic, page: page);
+      return result.books.map((b) => b.toEntity()).toList();
+    });
+    return _mergeWithLocalState(books);
   }
 
   @override
   Future<List<Book>> popularBooks({int page = 1}) async {
-    final result = await _gutendex.popularBooks(page: page);
-    return _mergeWithLocalState(result.books.map((b) => b.toEntity()).toList());
+    final books = await _cache.cachedList('gutendex_popular_p$page', () async {
+      final result = await _gutendex.popularBooks(page: page);
+      return result.books.map((b) => b.toEntity()).toList();
+    });
+    return _mergeWithLocalState(books);
   }
 
   @override
   Future<Book> getBook(String id) async {
-    final model = await _gutendex.getBook(id);
-    return _mergeOneWithLocalState(model.toEntity());
+    final book = await _cache.cachedBook(
+      'gutendex_book_$id',
+      () async => (await _gutendex.getBook(id)).toEntity(),
+    );
+    return _mergeOneWithLocalState(book);
   }
 
   @override
   Future<List<Book>> searchGoogleBooks(String query, {int startIndex = 0}) async {
-    final volumes = await _googleBooks.searchVolumes(query, startIndex: startIndex);
-    return _mergeWithLocalState(volumes.map((v) => v.toEntity()).toList());
+    final books = await _cache.cachedList('google_search_${query.toLowerCase()}_i$startIndex', () async {
+      final volumes = await _googleBooks.searchVolumes(query, startIndex: startIndex);
+      return volumes.map((v) => v.toEntity()).toList();
+    });
+    return _mergeWithLocalState(books);
   }
 
   @override
   Future<Book> getGoogleBooksVolume(String id) async {
-    final volume = await _googleBooks.getVolume(id);
-    return _mergeOneWithLocalState(volume.toEntity());
+    final book = await _cache.cachedBook(
+      'google_volume_$id',
+      () async => (await _googleBooks.getVolume(id)).toEntity(),
+    );
+    return _mergeOneWithLocalState(book);
   }
 
   /// If we already have a local (downloaded/imported/saved) copy of a book
