@@ -1,0 +1,52 @@
+{
+  "kind": "books#volumes",
+  "totalItems": 2,
+  "items": [
+    {
+      "kind": "books#volume",
+      "id": "B7GsvHYVQrUC",
+      "volumeInfo": {
+        "title": "Dune",
+        "subtitle": "",
+        "authors": ["Frank Herbert"],
+        "publisher": "Ace Books",
+        "publishedDate": "1990-09-01",
+        "description": "Set on the desert planet Arrakis, Dune is the story of the boy Paul Atreides, heir to a noble family tasked with ruling an inhospitable world where the only thing of value is the spice melange.",
+        "industryIdentifiers": [
+          { "type": "ISBN_10", "identifier": "0441172717" },
+          { "type": "ISBN_13", "identifier": "9780441172719" }
+        ],
+        "pageCount": 412,
+        "categories": ["Fiction"],
+        "averageRating": 4.5,
+        "ratingsCount": 1832,
+        "language": "en",
+        "imageLinks": {
+          "smallThumbnail": "http://books.google.com/books/content?id=B7GsvHYVQrUC&printsec=frontcover&img=1&zoom=5",
+          "thumbnail": "http://books.google.com/books/content?id=B7GsvHYVQrUC&printsec=frontcover&img=1&zoom=1"
+        }
+      }
+    },
+    {
+      "kind": "books#volume",
+      "id": "TW9mCwAAQBAJ",
+      "volumeInfo": {
+        "title": "Dune Messiah",
+        "authors": ["Frank Herbert"],
+        "publisher": "Ace Books",
+        "publishedDate": "1969-01-01",
+        "description": "The thrilling sequel to Dune, in which Paul Atreides, the messianic ruler of the desert planet Arrakis, has become the Emperor of the known universe.",
+        "industryIdentifiers": [
+          { "type": "ISBN_13", "identifier": "9780441172924" }
+        ],
+        "pageCount": 256,
+        "categories": ["Fiction"],
+        "language": "en",
+        "imageLinks": {
+          "smallThumbnail": "http://books.google.com/books/content?id=TW9mCwAAQBAJ&printsec=frontcover&img=1&zoom=5",
+          "thumbnail": "http://books.google.com/books/content?id=TW9mCwAAQBAJ&printsec=frontcover&img=1&zoom=1"
+        }
+      }
+    }
+  ]
+}

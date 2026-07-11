@@ -4,6 +4,7 @@ import '../home/mock_books.dart';
 import '../../routes.dart';
 import 'profile_provider.dart';
 import '../../data/models/book_model.dart';
+import '../common/widgets/book_cover.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -490,16 +491,14 @@ class _ProfileScreenState extends State<ProfileScreen>
                     children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(12),
-                        child: Image.asset(
-                          book.coverAsset,
+                        child: BookCover(
+                          coverAsset: book.coverAsset,
+                          coverUrl: book.coverUrl,
+                          title: book.title,
                           width: 110,
                           height: 165,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => Container(
-                            width: 110,
-                            height: 165,
-                            color: const Color(0xFFE0D4C8),
-                          ),
+                          borderRadius: 0,
                         ),
                       ),
                       Positioned(
@@ -600,16 +599,14 @@ class _ProfileScreenState extends State<ProfileScreen>
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: Image.asset(
-                book.coverAsset,
+              child: BookCover(
+                coverAsset: book.coverAsset,
+                coverUrl: book.coverUrl,
+                title: book.title,
                 width: 52,
                 height: 72,
                 fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Container(
-                  width: 52,
-                  height: 72,
-                  color: const Color(0xFFE0D4C8),
-                ),
+                borderRadius: 0,
               ),
             ),
             const SizedBox(width: 14),

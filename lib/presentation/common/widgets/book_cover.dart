@@ -1,7 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 class BookCover extends StatelessWidget {
   final String coverAsset;
+  final String? coverUrl; // http(s) URL or an absolute local file path
   final String title;
   final double? width;
   final double? height;
@@ -12,6 +15,7 @@ class BookCover extends StatelessWidget {
     super.key,
     required this.coverAsset,
     required this.title,
+    this.coverUrl,
     this.width,
     this.height,
     this.fit = BoxFit.cover,
@@ -20,6 +24,30 @@ class BookCover extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (coverUrl != null && coverUrl!.isNotEmpty) {
+      final isNetwork = coverUrl!.startsWith('http://') || coverUrl!.startsWith('https://');
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(borderRadius),
+        child: isNetwork
+            ? Image.network(
+                coverUrl!,
+                width: width,
+                height: height,
+                fit: fit,
+                errorBuilder: (context, error, stackTrace) => _buildPlaceholder(context),
+                loadingBuilder: (context, child, progress) =>
+                    progress == null ? child : _buildPlaceholder(context),
+              )
+            : Image.file(
+                File(coverUrl!),
+                width: width,
+                height: height,
+                fit: fit,
+                errorBuilder: (context, error, stackTrace) => _buildPlaceholder(context),
+              ),
+      );
+    }
+
     if (coverAsset.isEmpty) {
       return _buildPlaceholder(context);
     }

@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../theme.dart';
 import '../../routes.dart';
 import '../../data/models/book_model.dart';
+import '../common/widgets/book_cover.dart';
+import '../../services/audio_service.dart';
 
 class AudioPlayerScreen extends StatefulWidget {
   const AudioPlayerScreen({super.key, required this.book});
@@ -15,10 +18,22 @@ class AudioPlayerScreen extends StatefulWidget {
 
 class _AudioPlayerScreenState extends State<AudioPlayerScreen> with SingleTickerProviderStateMixin {
   bool _isPlaying = false;
-  double _playbackProgress = 0.35; // mock progress (0.0 to 1.0)
+  double _playbackProgress = 0.35; // mock progress (0.0 to 1.0), used when no real audio is attached
   double _speed = 1.25;
   String _selectedPersona = 'BRITISH SCHOLAR';
   late AnimationController _barsController;
+
+  // Real playback — only active when widget.book.audioChapters is populated
+  // (LibriVox-sourced audiobooks). Demo/mock books keep the old animated
+  // placeholder behaviour untouched below.
+  AudioService? _audioService;
+  Duration _realPosition = Duration.zero;
+  Duration _realDuration = Duration.zero;
+  StreamSubscription<Duration>? _positionSub;
+  StreamSubscription<Duration?>? _durationSub;
+  StreamSubscription<bool>? _playingSub;
+
+  bool get _hasRealAudio => widget.book.audioChapters != null && widget.book.audioChapters!.isNotEmpty;
 
   final List<String> _personas = [
     'BRITISH SCHOLAR',
@@ -34,15 +49,57 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen> with SingleTicker
       vsync: this,
       duration: const Duration(milliseconds: 1000),
     );
+    if (_hasRealAudio) {
+      _initRealAudio();
+    }
+  }
+
+  Future<void> _initRealAudio() async {
+    final service = AudioService();
+    _audioService = service;
+    _positionSub = service.positionStream.listen((p) {
+      if (mounted) setState(() => _realPosition = p);
+    });
+    _durationSub = service.durationStream.listen((d) {
+      if (mounted) setState(() => _realDuration = d ?? Duration.zero);
+    });
+    _playingSub = service.playingStream.listen((playing) {
+      if (mounted) {
+        setState(() => _isPlaying = playing);
+        if (playing) {
+          _barsController.repeat();
+        } else {
+          _barsController.stop();
+        }
+      }
+    });
+    try {
+      await service.loadChapters(widget.book.audioChapters!);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$e'.replaceFirst('AppException: ', ''))),
+        );
+      }
+    }
   }
 
   @override
   void dispose() {
     _barsController.dispose();
+    _positionSub?.cancel();
+    _durationSub?.cancel();
+    _playingSub?.cancel();
+    _audioService?.dispose();
     super.dispose();
   }
 
   void _togglePlay() {
+    final service = _audioService;
+    if (service != null) {
+      service.isPlaying ? service.pause() : service.play();
+      return;
+    }
     setState(() {
       _isPlaying = !_isPlaying;
       if (_isPlaying) {
@@ -65,6 +122,14 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen> with SingleTicker
         _speed = 1.0;
       }
     });
+    _audioService?.setSpeed(_speed);
+  }
+
+  String _formatDuration(Duration d) {
+    final h = d.inHours;
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return h > 0 ? '$h:$m:$s' : '$m:$s';
   }
 
   void _showPersonasSheet() {
@@ -193,8 +258,8 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen> with SingleTicker
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.center,
-              children: const [
-                Text(
+              children: [
+                const Text(
                   'NOW PLAYING',
                   style: TextStyle(
                     fontFamily: 'Inter',
@@ -204,12 +269,12 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen> with SingleTicker
                     letterSpacing: 1.0,
                   ),
                 ),
-                SizedBox(height: 2),
+                const SizedBox(height: 2),
                 Text(
-                  'Chapter 4: The Alchemist\'s Secret',
+                  _audioService?.currentChapter?.title ?? 'Chapter 4: The Alchemist\'s Secret',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontFamily: 'Literata',
                     fontFamilyFallback: ['serif'],
                     fontSize: 14,
@@ -248,21 +313,14 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen> with SingleTicker
           // Cover Image Display
           ClipRRect(
             borderRadius: BorderRadius.circular(16),
-            child: widget.book.coverAsset.isNotEmpty
-                ? Image.asset(widget.book.coverAsset, fit: BoxFit.cover, width: 250, height: 340)
-                : Container(
-                    color: const Color(0xFF37474F),
-                    child: Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Text(
-                          widget.book.title,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ),
-                  ),
+            child: BookCover(
+              coverAsset: widget.book.coverAsset,
+              coverUrl: widget.book.coverUrl,
+              title: widget.book.title,
+              width: 250,
+              height: 340,
+              borderRadius: 0,
+            ),
           ),
           // Pulsing audio wave status icon overlaid at the bottom center of card
           Positioned(
@@ -324,7 +382,7 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen> with SingleTicker
         ),
         const SizedBox(height: 6),
         Text(
-          '${widget.book.author} • Narrated by Simon Vance',
+          _hasRealAudio ? widget.book.author : '${widget.book.author} • Narrated by Simon Vance',
           textAlign: TextAlign.center,
           style: const TextStyle(
             fontFamily: 'Inter',
@@ -385,9 +443,12 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen> with SingleTicker
             final RenderBox box = context.findRenderObject() as RenderBox;
             final Offset localPos = box.globalToLocal(details.globalPosition);
             final double width = box.size.width - 48; // padding margins
-            setState(() {
-              _playbackProgress = ((localPos.dx - 24) / width).clamp(0.0, 1.0);
-            });
+            final target = ((localPos.dx - 24) / width).clamp(0.0, 1.0);
+            if (_hasRealAudio && _realDuration > Duration.zero) {
+              _audioService?.seek(_realDuration * target);
+            } else {
+              setState(() => _playbackProgress = target);
+            }
           },
           child: SizedBox(
             height: 48,
@@ -397,7 +458,7 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen> with SingleTicker
               builder: (context, child) {
                 return CustomPaint(
                   painter: _WaveTrackPainter(
-                    progress: _playbackProgress,
+                    progress: _currentProgress,
                     animationValue: _barsController.value,
                     isPlaying: _isPlaying,
                   ),
@@ -409,10 +470,10 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen> with SingleTicker
         const SizedBox(height: 6),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: const [
+          children: [
             Text(
-              '12:45',
-              style: TextStyle(
+              _hasRealAudio ? _formatDuration(_realPosition) : '12:45',
+              style: const TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
@@ -420,8 +481,8 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen> with SingleTicker
               ),
             ),
             Text(
-              '-24:15',
-              style: TextStyle(
+              _hasRealAudio ? '-${_formatDuration(_realDuration - _realPosition)}' : '-24:15',
+              style: const TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
@@ -434,20 +495,32 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen> with SingleTicker
     );
   }
 
+  double get _currentProgress {
+    if (_hasRealAudio && _realDuration > Duration.zero) {
+      return (_realPosition.inMilliseconds / _realDuration.inMilliseconds).clamp(0.0, 1.0);
+    }
+    return _playbackProgress;
+  }
+
   Widget _buildPlayControls() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceAround,
       children: [
         IconButton(
           icon: const Icon(Icons.skip_previous_rounded, color: Color(0xFF5C3826), size: 28),
-          onPressed: () {},
+          onPressed: _hasRealAudio ? () => _audioService?.skipToPrevious() : null,
         ),
         IconButton(
           icon: const Icon(Icons.replay_10_rounded, color: Color(0xFF5C3826), size: 28),
           onPressed: () {
-            setState(() {
-              _playbackProgress = math.max(0.0, _playbackProgress - 0.05);
-            });
+            if (_hasRealAudio) {
+              final target = _realPosition - const Duration(seconds: 10);
+              _audioService?.seek(target.isNegative ? Duration.zero : target);
+            } else {
+              setState(() {
+                _playbackProgress = math.max(0.0, _playbackProgress - 0.05);
+              });
+            }
           },
         ),
         // Play/Pause circular FAB
@@ -477,14 +550,19 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen> with SingleTicker
         IconButton(
           icon: const Icon(Icons.forward_30_rounded, color: Color(0xFF5C3826), size: 28),
           onPressed: () {
-            setState(() {
-              _playbackProgress = math.min(1.0, _playbackProgress + 0.08);
-            });
+            if (_hasRealAudio) {
+              final target = _realPosition + const Duration(seconds: 30);
+              _audioService?.seek(target > _realDuration ? _realDuration : target);
+            } else {
+              setState(() {
+                _playbackProgress = math.min(1.0, _playbackProgress + 0.08);
+              });
+            }
           },
         ),
         IconButton(
           icon: const Icon(Icons.skip_next_rounded, color: Color(0xFF5C3826), size: 28),
-          onPressed: () {},
+          onPressed: _hasRealAudio ? () => _audioService?.skipToNext() : null,
         ),
       ],
     );
@@ -589,7 +667,7 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen> with SingleTicker
             child: OutlinedButton.icon(
               onPressed: () {
                 Navigator.of(context).pushReplacementNamed(
-                  AppRoutes.reader,
+                  AppRoutes.readAlong,
                   arguments: widget.book,
                 );
               },

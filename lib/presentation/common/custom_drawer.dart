@@ -106,6 +106,16 @@ class CustomDrawer extends StatelessWidget {
     return Column(
       children: [
         _buildMenuItem(
+          icon: Icons.search_rounded,
+          label: 'Search Books',
+          isActive: false,
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.pushNamed(context, AppRoutes.search);
+          },
+        ),
+        const SizedBox(height: 8),
+        _buildMenuItem(
           icon: Icons.group_rounded,
           label: 'Reading Clubs',
           isActive: true,

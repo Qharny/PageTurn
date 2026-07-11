@@ -3,6 +3,7 @@ import 'dart:ui';
 import '../../data/models/book_model.dart';
 import '../../theme.dart';
 import '../../routes.dart';
+import '../common/widgets/book_cover.dart';
 import '../home/mock_books.dart';
 import '../reading_clubs/reading_club_provider.dart';
 import '../reading_clubs/club_detail_screen.dart';
@@ -222,18 +223,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
                             ),
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(16),
-                              child: Image.asset(
-                                book.coverAsset,
-                                fit: BoxFit.cover,
+                              child: BookCover(
+                                coverAsset: book.coverAsset,
+                                coverUrl: book.coverUrl,
+                                title: book.title,
                                 width: 170,
                                 height: 240,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Container(
-                                    color: Colors.grey[300],
-                                    alignment: Alignment.center,
-                                    child: const Icon(Icons.book, size: 40),
-                                  );
-                                },
+                                borderRadius: 0,
                               ),
                             ),
                           ),

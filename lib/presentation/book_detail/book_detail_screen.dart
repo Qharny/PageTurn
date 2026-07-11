@@ -3,7 +3,10 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../theme.dart';
 import '../../data/models/book_model.dart';
+import '../../data/repositories/repository_locator.dart';
+import '../../core/errors/app_exception.dart';
 import '../../routes.dart';
+import '../common/widgets/book_cover.dart';
 import '../library/library_provider.dart';
 
 class BookDetailScreen extends StatefulWidget {
@@ -59,6 +62,55 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
     );
   }
 
+  Future<void> _handleReadNow(BuildContext context) async {
+    if (widget.book.isAvailableOffline) {
+      if (context.mounted) Navigator.pushNamed(context, AppRoutes.reader, arguments: widget.book);
+      return;
+    }
+    if (widget.book.downloadUrl == null || widget.book.downloadUrl!.isEmpty) {
+      // No content to download (e.g. a mock/manual entry) — let the reader
+      // show its own graceful "not downloaded" state.
+      Navigator.pushNamed(context, AppRoutes.reader, arguments: widget.book);
+      return;
+    }
+
+    final progress = ValueNotifier<double>(0);
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: Colors.white,
+        content: ValueListenableBuilder<double>(
+          valueListenable: progress,
+          builder: (_, value, _) => Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Downloading book…', style: TextStyle(fontFamily: 'Inter', color: _chocolateBrown)),
+              const SizedBox(height: 16),
+              LinearProgressIndicator(value: value > 0 ? value : null, color: AppTheme.primary),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    try {
+      final path = await RepositoryLocator.bookRepository.downloadBook(
+        widget.book,
+        onProgress: (p) => progress.value = p,
+      );
+      final updated = widget.book.copyWith(localFilePath: path);
+      LibraryProvider.instance.updateBook(updated);
+      if (context.mounted) Navigator.pop(context); // close progress dialog
+      if (context.mounted) Navigator.pushNamed(context, AppRoutes.reader, arguments: updated);
+    } on AppException catch (e) {
+      if (context.mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    }
+  }
+
   // ── HERO HEADER (Twitter/X profile layout) ───────────────────────────────────
   Widget _buildHeroHeader(BuildContext context) {
     const double bannerH = 215.0;
@@ -79,13 +131,15 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
             top: 0, left: 0, right: 0,
             child: SizedBox(
               height: bannerH,
-              child: widget.book.coverAsset.isNotEmpty
+              child: (widget.book.coverAsset.isNotEmpty || (widget.book.coverUrl?.isNotEmpty ?? false))
                   ? ImageFiltered(
                       imageFilter: ImageFilter.blur(sigmaX: 32, sigmaY: 32),
-                      child: Image.asset(
-                        widget.book.coverAsset,
+                      child: BookCover(
+                        coverAsset: widget.book.coverAsset,
+                        coverUrl: widget.book.coverUrl,
+                        title: widget.book.title,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => Container(color: _darkBrown),
+                        borderRadius: 0,
                       ),
                     )
                   : Container(color: _darkBrown),
@@ -194,15 +248,14 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(9),
-                child: widget.book.coverAsset.isNotEmpty
-                    ? Image.asset(
-                        widget.book.coverAsset,
-                        fit: BoxFit.cover,
-                        width: coverW,
-                        height: coverH,
-                        errorBuilder: (_, _, _) => _fallbackCover(),
-                      )
-                    : _fallbackCover(),
+                child: BookCover(
+                  coverAsset: widget.book.coverAsset,
+                  coverUrl: widget.book.coverUrl,
+                  title: widget.book.title,
+                  width: coverW,
+                  height: coverH,
+                  borderRadius: 0,
+                ),
               ),
             ),
           ),
@@ -262,21 +315,6 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _fallbackCover() {
-    return Container(
-      width: 116,
-      height: 170,
-      color: const Color(0xFF2C3E50),
-      child: Center(
-        child: Text(
-          widget.book.title,
-          textAlign: TextAlign.center,
-          style: const TextStyle(color: Colors.white, fontSize: 13, fontFamily: 'Inter'),
-        ),
       ),
     );
   }
@@ -344,7 +382,7 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
       children: [
         // Primary Read button — full width
         GestureDetector(
-          onTap: () => Navigator.pushNamed(context, AppRoutes.reader, arguments: widget.book),
+          onTap: () => _handleReadNow(context),
           child: Container(
             height: 52,
             decoration: BoxDecoration(

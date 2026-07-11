@@ -206,6 +206,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 child: BookCover(
                   coverAsset: book.coverAsset,
+                  coverUrl: book.coverUrl,
                   title: book.title,
                   fit: BoxFit.contain,
                   borderRadius: 12,
@@ -453,6 +454,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               child: BookCover(
                 coverAsset: book.coverAsset,
+                coverUrl: book.coverUrl,
                 title: book.title,
                 fit: BoxFit.cover,
                 borderRadius: 8,
@@ -652,6 +654,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               child: BookCover(
                 coverAsset: book.coverAsset,
+                coverUrl: book.coverUrl,
                 title: book.title,
                 fit: BoxFit.cover,
                 borderRadius: 12,
@@ -859,6 +862,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               child: BookCover(
                 coverAsset: book.coverAsset,
+                coverUrl: book.coverUrl,
                 title: book.title,
                 fit: BoxFit.cover,
                 borderRadius: 8,

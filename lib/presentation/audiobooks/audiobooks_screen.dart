@@ -1,22 +1,52 @@
 import 'package:flutter/material.dart';
 import '../../theme.dart';
 import '../../data/models/book_model.dart';
-import '../home/mock_books.dart';
+import '../../data/repositories/repository_locator.dart';
+import '../../core/errors/app_exception.dart';
 import '../../routes.dart';
+import '../common/widgets/book_cover.dart';
 
-class AudiobooksScreen extends StatelessWidget {
+class AudiobooksScreen extends StatefulWidget {
   const AudiobooksScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final List<Book> audiobooks = [
-      MockBooks.becoming,
-      MockBooks.echoOfStarlight,
-      MockBooks.circe,
-      MockBooks.alchemist,
-      MockBooks.atomicHabits,
-    ];
+  State<AudiobooksScreen> createState() => _AudiobooksScreenState();
+}
 
+class _AudiobooksScreenState extends State<AudiobooksScreen> {
+  List<Book> _audiobooks = [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final books = await RepositoryLocator.audioRepository.recentAudiobooks(limit: 12);
+      if (!mounted) return;
+      setState(() {
+        _audiobooks = books;
+        _loading = false;
+      });
+    } on AppException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.message;
+        _loading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.neutral,
       body: SafeArea(
@@ -24,52 +54,73 @@ class AudiobooksScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildHeader(context),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Listen &\nExplore',
-                      style: TextStyle(
-                        fontFamily: 'Literata',
-                        fontSize: 30,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1E1E1E),
-                        height: 1.1,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'Premium narrations for every mood and moment.',
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 14,
-                        color: Color(0xFF7A6B63),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    // Featured audio card
-                    _buildFeaturedBanner(context, audiobooks.first),
-                    const SizedBox(height: 28),
-                    const Text(
-                      'Popular Audiobooks',
-                      style: TextStyle(
-                        fontFamily: 'Literata',
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1E1E1E),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    ...audiobooks.skip(1).map((book) => _buildAudioRow(context, book)),
-                  ],
-                ),
-              ),
-            ),
+            Expanded(child: _buildBody()),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator(color: AppTheme.primary));
+    }
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(_error!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontFamily: 'Inter', color: Color(0xFF7A6B63), fontSize: 13)),
+        ),
+      );
+    }
+    if (_audiobooks.isEmpty) {
+      return const Center(
+        child: Text('No audiobooks available right now.',
+            style: TextStyle(fontFamily: 'Inter', color: Color(0xFF7A6B63), fontSize: 13)),
+      );
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Listen &\nExplore',
+            style: TextStyle(
+              fontFamily: 'Literata',
+              fontSize: 30,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1E1E1E),
+              height: 1.1,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Free public-domain narrations from LibriVox.',
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 14,
+              color: Color(0xFF7A6B63),
+            ),
+          ),
+          const SizedBox(height: 24),
+          _buildFeaturedBanner(context, _audiobooks.first),
+          const SizedBox(height: 28),
+          const Text(
+            'Popular Audiobooks',
+            style: TextStyle(
+              fontFamily: 'Literata',
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1E1E1E),
+            ),
+          ),
+          const SizedBox(height: 16),
+          ..._audiobooks.skip(1).map((book) => _buildAudioRow(context, book)),
+        ],
       ),
     );
   }
@@ -127,8 +178,7 @@ class AudiobooksScreen extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              Image.asset(book.coverAsset, fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Container(color: const Color(0xFF2C3E50))),
+              BookCover(coverAsset: book.coverAsset, coverUrl: book.coverUrl, title: book.title, borderRadius: 0),
               Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -173,6 +223,8 @@ class AudiobooksScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(book.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                 fontFamily: 'Literata',
                                 fontSize: 18,
@@ -180,6 +232,8 @@ class AudiobooksScreen extends StatelessWidget {
                                 color: Colors.white,
                               )),
                           Text(book.author,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontFamily: 'Inter',
                                 fontSize: 12,
@@ -220,15 +274,7 @@ class AudiobooksScreen extends StatelessWidget {
         ),
         child: Row(
           children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: Image.asset(book.coverAsset,
-                width: 64, height: 64, fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Container(
-                  width: 64, height: 64, color: const Color(0xFFE0D4C8),
-                  child: const Icon(Icons.book, color: Color(0xFF7A6B63)),
-                )),
-            ),
+            BookCover(coverAsset: book.coverAsset, coverUrl: book.coverUrl, title: book.title, width: 64, height: 64, borderRadius: 10),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
@@ -245,6 +291,8 @@ class AudiobooksScreen extends StatelessWidget {
                       )),
                   const SizedBox(height: 3),
                   Text(book.author,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 12,

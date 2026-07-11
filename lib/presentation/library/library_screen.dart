@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../theme.dart';
 import '../../routes.dart';
 import '../../data/models/book_model.dart';
+import '../common/widgets/book_cover.dart';
 import 'library_provider.dart';
 
 class LibraryScreen extends StatefulWidget {
@@ -338,20 +339,14 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: book.coverAsset.isNotEmpty
-                        ? Image.asset(book.coverAsset, fit: BoxFit.cover, width: double.infinity, height: double.infinity)
-                        : Container(
-                            color: const Color(0xFF37474F),
-                            width: double.infinity,
-                            height: double.infinity,
-                            child: Center(
-                              child: Text(
-                                book.title,
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(color: Colors.white, fontSize: 12),
-                              ),
-                            ),
-                          ),
+                    child: BookCover(
+                      coverAsset: book.coverAsset,
+                      coverUrl: book.coverUrl,
+                      title: book.title,
+                      width: double.infinity,
+                      height: double.infinity,
+                      borderRadius: 0,
+                    ),
                   ),
                 ),
                 // Progress Bar overlay
@@ -467,17 +462,14 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(8),
-                    child: book.coverAsset.isNotEmpty
-                        ? Image.asset(book.coverAsset, fit: BoxFit.cover, width: double.infinity, height: double.infinity)
-                        : Container(
-                            color: const Color(0xFF37474F),
-                            child: Center(
-                              child: Text(
-                                book.title.substring(0, 1),
-                                style: const TextStyle(color: Colors.white),
-                              ),
-                            ),
-                          ),
+                    child: BookCover(
+                      coverAsset: book.coverAsset,
+                      coverUrl: book.coverUrl,
+                      title: book.title,
+                      width: double.infinity,
+                      height: double.infinity,
+                      borderRadius: 0,
+                    ),
                   ),
                   if (book.progress != null && book.progress! > 0)
                     Positioned(

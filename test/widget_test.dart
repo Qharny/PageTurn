@@ -5,12 +5,22 @@
 // gestures. You can also use WidgetTester to find child widgets in the widget
 // tree, read text, and verify that the values of widget properties are correct.
 
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:pageturn/data/repositories/repository_locator.dart';
 import 'package:pageturn/main.dart';
 
 void main() {
+  setUpAll(() async {
+    // Bypass path_provider (unavailable under plain `flutter test`) with a
+    // temp directory so Hive can still open its local index.
+    final tempDir = Directory.systemTemp.createTempSync('pageturn_test_');
+    await RepositoryLocator.init(testDirectoryPath: tempDir.path);
+  });
+
   testWidgets('Home page layout and bottom tab switching smoke test', (WidgetTester tester) async {
     // Set onboarding as completed to skip to home
     SharedPreferences.setMockInitialValues({'onboarding_completed': true});

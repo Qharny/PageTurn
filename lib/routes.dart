@@ -6,6 +6,7 @@ import 'presentation/book_detail/book_detail_screen.dart';
 import 'data/models/book_model.dart';
 import 'presentation/audio_player/read_along_screen.dart';
 import 'presentation/audio_player/audio_player_screen.dart';
+import 'presentation/reader/ebook_reader_screen.dart';
 import 'presentation/reading_clubs/reading_clubs_screen.dart';
 import 'presentation/audiobooks/audiobooks_screen.dart';
 import 'presentation/ebooks/ebooks_screen.dart';
@@ -14,6 +15,7 @@ import 'presentation/help/help_screen.dart';
 import 'presentation/home/continue_reading_screen.dart';
 import 'presentation/explore/trending_leaderboard_screen.dart';
 import 'presentation/book_detail/reviews_screen.dart';
+import 'presentation/search/search_screen.dart';
 
 class AppRoutes {
   static const String splash = '/splash';
@@ -21,6 +23,7 @@ class AppRoutes {
   static const String home = '/';
   static const String details = '/details';
   static const String reader = '/reader';
+  static const String readAlong = '/read-along';
   static const String player = '/player';
   static const String readingClubs = '/reading-clubs';
   static const String audiobooks = '/audiobooks';
@@ -30,6 +33,7 @@ class AppRoutes {
   static const String continueReading = '/continue-reading';
   static const String trendingLeaderboard = '/trending-leaderboard';
   static const String reviews = '/reviews';
+  static const String search = '/search';
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -43,6 +47,9 @@ class AppRoutes {
         final book = settings.arguments as Book;
         return _buildPageRoute(BookDetailScreen(book: book), settings);
       case reader:
+        final book = settings.arguments as Book;
+        return _buildPageRoute(EbookReaderScreen(book: book), settings);
+      case readAlong:
         final book = settings.arguments as Book;
         return _buildPageRoute(ReadAlongScreen(book: book), settings);
       case player:
@@ -65,6 +72,8 @@ class AppRoutes {
       case reviews:
         final book = settings.arguments as Book;
         return _buildPageRoute(ReviewsScreen(book: book), settings);
+      case search:
+        return _buildPageRoute(const SearchScreen(), settings);
       default:
         return _buildPageRoute(
           const Scaffold(

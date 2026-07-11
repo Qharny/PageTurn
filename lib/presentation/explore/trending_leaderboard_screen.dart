@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../theme.dart';
 import '../../data/models/book_model.dart';
 import '../../routes.dart';
+import '../common/widgets/book_cover.dart';
 import '../home/mock_books.dart';
 import 'explore_screen.dart' show mockGildedSpine, mockShatteredEchoes;
 
@@ -163,13 +164,12 @@ class TrendingLeaderboardScreen extends StatelessWidget {
               height: 74,
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: Image.asset(
-                  book.coverAsset,
+                child: BookCover(
+                  coverAsset: book.coverAsset,
+                  coverUrl: book.coverUrl,
+                  title: book.title,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => Container(
-                    color: const Color(0xFFE0D4C8),
-                    child: const Icon(Icons.book, size: 24, color: _mutedText),
-                  ),
+                  borderRadius: 0,
                 ),
               ),
             ),

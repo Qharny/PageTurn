@@ -173,6 +173,7 @@ class ContinueReadingScreen extends StatelessWidget {
               height: 88,
               child: BookCover(
                 coverAsset: book.coverAsset,
+                coverUrl: book.coverUrl,
                 title: book.title,
                 fit: BoxFit.cover,
                 borderRadius: 10,

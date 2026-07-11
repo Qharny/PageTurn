@@ -11,9 +11,13 @@ import 'presentation/profile/profile_screen.dart';
 import 'presentation/library/library_provider.dart';
 import 'presentation/reading_clubs/reading_club_provider.dart';
 import 'data/models/book_model.dart';
+import 'data/repositories/repository_locator.dart';
+import 'core/errors/app_exception.dart';
 import 'presentation/home/mock_books.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await RepositoryLocator.init();
   runApp(const MyApp());
 }
 
@@ -273,10 +277,21 @@ class _AddBottomSheetContentState extends State<_AddBottomSheetContent> with Sin
   // Set of successfully added catalog book IDs (to display checkmark animation)
   final Set<String> _addedCatalogIds = {};
 
+  // Google Books quick-add search state
+  final _googleSearchController = TextEditingController();
+  List<Book> _googleResults = [];
+  bool _googleSearchLoading = false;
+  String? _googleSearchError;
+  final Set<String> _addedGoogleIds = {};
+
+  // Local EPUB import state
+  bool _importing = false;
+  String? _importError;
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
   }
 
   @override
@@ -288,6 +303,7 @@ class _AddBottomSheetContentState extends State<_AddBottomSheetContent> with Sin
     _clubNameController.dispose();
     _clubDescController.dispose();
     _clubModeratorController.dispose();
+    _googleSearchController.dispose();
     super.dispose();
   }
 
@@ -368,10 +384,14 @@ class _AddBottomSheetContentState extends State<_AddBottomSheetContent> with Sin
                   ),
                   indicatorWeight: 3,
                   dividerColor: const Color(0xFFF2ECE4),
+                  isScrollable: true,
+                  tabAlignment: TabAlignment.start,
                   tabs: const [
                     Tab(text: 'Catalog'),
                     Tab(text: 'Custom Book'),
                     Tab(text: 'Reading Club'),
+                    Tab(text: 'Find Online'),
+                    Tab(text: 'Import EPUB'),
                   ],
                 ),
                 const SizedBox(height: 20),
@@ -386,6 +406,8 @@ class _AddBottomSheetContentState extends State<_AddBottomSheetContent> with Sin
                         _buildCatalogTab(),
                         _buildCustomBookTab(),
                         _buildReadingClubTab(),
+                        _buildGoogleSearchTab(),
+                        _buildImportEpubTab(),
                       ],
                     ),
                   ),
@@ -784,6 +806,166 @@ class _AddBottomSheetContentState extends State<_AddBottomSheetContent> with Sin
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _runGoogleSearch(String query) async {
+    if (query.trim().isEmpty) return;
+    setState(() {
+      _googleSearchLoading = true;
+      _googleSearchError = null;
+    });
+    try {
+      final results = await RepositoryLocator.bookRepository.searchGoogleBooks(query.trim());
+      if (!mounted) return;
+      setState(() {
+        _googleResults = results;
+        _googleSearchLoading = false;
+      });
+    } on AppException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _googleSearchError = e.message;
+        _googleSearchLoading = false;
+      });
+    }
+  }
+
+  Widget _buildGoogleSearchTab() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextField(
+          controller: _googleSearchController,
+          decoration: _buildInputDecoration('Search title or author', Icons.search_rounded),
+          style: const TextStyle(fontSize: 14),
+          textInputAction: TextInputAction.search,
+          onSubmitted: _runGoogleSearch,
+        ),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton(
+            onPressed: () => _runGoogleSearch(_googleSearchController.text),
+            child: const Text('Search', style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.bold)),
+          ),
+        ),
+        Expanded(
+          child: _googleSearchLoading
+              ? const Center(child: CircularProgressIndicator(color: AppTheme.primary))
+              : _googleSearchError != null
+                  ? Center(
+                      child: Text(_googleSearchError!,
+                          style: const TextStyle(fontFamily: 'Inter', color: Color(0xFF7A6B63), fontSize: 13)),
+                    )
+                  : _googleResults.isEmpty
+                      ? const Center(
+                          child: Text('Search Google Books to quick-add a title.',
+                              style: TextStyle(fontFamily: 'Inter', color: Color(0xFF7A6B63), fontSize: 13)),
+                        )
+                      : ListView.builder(
+                          itemCount: _googleResults.length,
+                          itemBuilder: (context, index) {
+                            final book = _googleResults[index];
+                            final isAdded = _addedGoogleIds.contains(book.id);
+                            return ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              leading: SizedBox(
+                                width: 40,
+                                height: 56,
+                                child: book.coverUrl != null
+                                    ? Image.network(book.coverUrl!, fit: BoxFit.cover,
+                                        errorBuilder: (_, _, _) => const Icon(Icons.book_rounded, color: Color(0xFF7A6B63)))
+                                    : const Icon(Icons.book_rounded, color: Color(0xFF7A6B63)),
+                              ),
+                              title: Text(book.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.bold, fontSize: 13)),
+                              subtitle: Text(book.author,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontFamily: 'Inter', fontSize: 11, color: Color(0xFF7A6B63))),
+                              trailing: isAdded
+                                  ? const Icon(Icons.check_circle_rounded, color: Color(0xFF2E7D32))
+                                  : IconButton(
+                                      icon: const Icon(Icons.add_circle_outline_rounded, color: AppTheme.primary),
+                                      onPressed: () {
+                                        setState(() => _addedGoogleIds.add(book.id));
+                                        LibraryProvider.instance.addBook(book);
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text('Added "${book.title}" to library.')),
+                                        );
+                                      },
+                                    ),
+                            );
+                          },
+                        ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _importEpub() async {
+    setState(() {
+      _importing = true;
+      _importError = null;
+    });
+    try {
+      final book = await RepositoryLocator.bookRepository.importLocalEpub();
+      if (!mounted) return;
+      setState(() => _importing = false);
+      if (book == null) return; // user cancelled the picker
+      LibraryProvider.instance.addBook(book);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Imported "${book.title}" to your library.')),
+      );
+      Navigator.pop(context);
+    } on AppException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _importing = false;
+        _importError = e.message;
+      });
+    }
+  }
+
+  Widget _buildImportEpubTab() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Icon(Icons.upload_file_rounded, size: 40, color: Color(0xFF7A6B63)),
+        const SizedBox(height: 12),
+        const Text(
+          'Import an EPUB file from your device.',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontFamily: 'Inter', color: Color(0xFF7A6B63), fontSize: 13),
+        ),
+        if (_importError != null) ...[
+          const SizedBox(height: 12),
+          Text(_importError!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontFamily: 'Inter', color: Colors.red, fontSize: 12)),
+        ],
+        const SizedBox(height: 20),
+        ElevatedButton.icon(
+          onPressed: _importing ? null : _importEpub,
+          icon: _importing
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                )
+              : const Icon(Icons.folder_open_rounded, size: 18),
+          label: Text(_importing ? 'Importing…' : 'Choose EPUB File'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.primary,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+          ),
+        ),
+      ],
     );
   }
 
