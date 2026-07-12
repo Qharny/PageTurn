@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 class BookCover extends StatelessWidget {
@@ -29,14 +30,13 @@ class BookCover extends StatelessWidget {
       return ClipRRect(
         borderRadius: BorderRadius.circular(borderRadius),
         child: isNetwork
-            ? Image.network(
-                coverUrl!,
+            ? CachedNetworkImage(
+                imageUrl: coverUrl!,
                 width: width,
                 height: height,
                 fit: fit,
-                errorBuilder: (context, error, stackTrace) => _buildPlaceholder(context),
-                loadingBuilder: (context, child, progress) =>
-                    progress == null ? child : _buildPlaceholder(context),
+                placeholder: (context, url) => _buildPlaceholder(context),
+                errorWidget: (context, url, error) => _buildPlaceholder(context),
               )
             : Image.file(
                 File(coverUrl!),
@@ -88,30 +88,31 @@ class BookCover extends StatelessWidget {
           ),
         ),
         padding: const EdgeInsets.all(8),
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.book_rounded,
-                color: Colors.white.withValues(alpha: 0.7),
-                size: 28,
-              ),
-              const SizedBox(height: 8),
-              Text(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.book_rounded,
+              color: Colors.white.withValues(alpha: 0.7),
+              size: 24,
+            ),
+            const SizedBox(height: 4),
+            Flexible(
+              child: Text(
                 title,
                 textAlign: TextAlign.center,
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontFamily: 'Literata',
-                  fontSize: 12,
+                  fontSize: 10,
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

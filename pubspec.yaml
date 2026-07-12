@@ -47,6 +47,7 @@ dependencies:
   archive: ^4.0.9
   flutter_tts: ^4.2.3
   html: ^0.15.6
+  cached_network_image: ^3.4.1
 
 dev_dependencies:
   flutter_test:

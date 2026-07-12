@@ -3,6 +3,7 @@ import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 
 import '../../data/models/book_model.dart';
 import '../../theme.dart';
+import '../common/widgets/book_cover.dart';
 import 'reader_provider.dart';
 import 'widgets/chapter_list_sheet.dart';
 import 'widgets/font_settings_sheet.dart';
@@ -95,7 +96,7 @@ class _EbookReaderScreenState extends State<EbookReaderScreen> {
           switch (_provider.status) {
             case ReaderStatus.idle:
             case ReaderStatus.loading:
-              return const Center(child: CircularProgressIndicator(color: AppTheme.primary));
+              return _buildLoadingSplash();
             case ReaderStatus.error:
               return _buildError(_provider.error?.message ?? 'Something went wrong.');
             case ReaderStatus.ready:
@@ -109,6 +110,91 @@ class _EbookReaderScreenState extends State<EbookReaderScreen> {
           if (_provider.status != ReaderStatus.ready) return const SizedBox.shrink();
           return _buildChapterNav();
         },
+      ),
+    );
+  }
+
+  Widget _buildLoadingSplash() {
+    final book = widget.book;
+    final hasCover = (book.coverUrl != null && book.coverUrl!.isNotEmpty) || book.coverAsset.isNotEmpty;
+    return Container(
+      color: const Color(0xFFFAF6F0),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Cover image
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: SizedBox(
+              width: 160,
+              height: 230,
+              child: hasCover
+                  ? BookCover(
+                      coverAsset: book.coverAsset,
+                      coverUrl: book.coverUrl,
+                      title: book.title,
+                      width: 160,
+                      height: 230,
+                      fit: BoxFit.cover,
+                    )
+                  : BookCover(
+                      coverAsset: '',
+                      coverUrl: null,
+                      title: book.title,
+                      width: 160,
+                      height: 230,
+                    ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          // Title
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 40),
+            child: Text(
+              book.title,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontFamily: 'Literata',
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF2C1810),
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          // Author
+          Text(
+            book.author,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 13,
+              color: Color(0xFF7A6B63),
+            ),
+          ),
+          const SizedBox(height: 32),
+          // Loading indicator
+          const SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.5,
+              color: AppTheme.primary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Opening book…',
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 12,
+              color: Color(0xFF7A6B63),
+            ),
+          ),
+        ],
       ),
     );
   }
