@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../theme.dart';
 import '../profile/profile_provider.dart';
+import '../../services/auth_service.dart';
+import '../../core/auth/session_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -83,12 +85,45 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         onTap: () => _showEditProfileSheet(context),
                       ),
                       _buildDivider(),
-                      _buildActionRow('Change Password', Icons.lock_outline_rounded),
+                      _buildActionRow('Change Password', Icons.lock_outline_rounded,
+                        onTap: SessionProvider.instance.isAuthenticated
+                            ? () => _showResetPasswordDialog(context)
+                            : null,
+                      ),
                       _buildDivider(),
                       _buildActionRow('Privacy Policy', Icons.privacy_tip_outlined),
                       _buildDivider(),
-                      _buildActionRow('Sign Out', Icons.logout_rounded, isDestructive: true),
+                      // Show Sign In when guest, Sign Out when authenticated
+                      ListenableBuilder(
+                        listenable: SessionProvider.instance,
+                        builder: (context, _) {
+                          final isAuth = SessionProvider.instance.isAuthenticated;
+                          return _buildActionRow(
+                            isAuth ? 'Sign Out' : 'Sign In / Create Account',
+                            isAuth ? Icons.logout_rounded : Icons.login_rounded,
+                            isDestructive: isAuth,
+                            onTap: () async {
+                              if (isAuth) {
+                                final confirmed = await _confirmSignOut(context);
+                                if (confirmed && context.mounted) {
+                                  await AuthService.instance.signOut();
+                                  ProfileProvider.instance.onAuthChanged();
+                                  if (context.mounted) Navigator.pop(context);
+                                }
+                              } else {
+                                Navigator.pop(context);
+                                SessionProvider.instance.requireAuth(
+                                  context,
+                                  pendingAction: () {},
+                                  reason: 'Sign in to sync your reading across devices.',
+                                );
+                              }
+                            },
+                          );
+                        },
+                      ),
                     ]),
+
                   ],
                 ),
               ),
@@ -427,6 +462,105 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         );
       },
+    );
+  }
+
+  Future<bool> _confirmSignOut(BuildContext context) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFFF9F4EE),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Sign Out?',
+          style: TextStyle(fontFamily: 'Literata', fontWeight: FontWeight.bold, color: Color(0xFF5C3826)),
+        ),
+        content: const Text(
+          'Your reading progress and library are saved to the cloud and will be waiting when you sign back in.',
+          style: TextStyle(fontFamily: 'Inter', fontSize: 14, color: Color(0xFF7A6B63)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel', style: TextStyle(fontFamily: 'Inter', color: Color(0xFF7A6B63))),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('Sign Out', style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
+  void _showResetPasswordDialog(BuildContext context) {
+    final emailCtrl = TextEditingController(
+      text: AuthService.instance.currentUser?.email ?? '',
+    );
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFFF9F4EE),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Reset Password',
+          style: TextStyle(fontFamily: 'Literata', fontWeight: FontWeight.bold, color: Color(0xFF5C3826)),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'We\'ll send a password reset link to your email address.',
+              style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: Color(0xFF7A6B63)),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: emailCtrl,
+              keyboardType: TextInputType.emailAddress,
+              decoration: InputDecoration(
+                labelText: 'Email',
+                labelStyle: const TextStyle(color: Color(0xFF7A6B63)),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: Color(0xFF8C481A)),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel', style: TextStyle(fontFamily: 'Inter', color: Color(0xFF7A6B63))),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await AuthService.instance.resetPassword(email: emailCtrl.text.trim());
+              if (context.mounted) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Password reset email sent!'),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF8C481A),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('Send Link', style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
     );
   }
 }

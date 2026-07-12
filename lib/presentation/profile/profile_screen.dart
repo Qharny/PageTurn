@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import '../../theme.dart';
 import '../../routes.dart';
 import 'profile_provider.dart';
+import '../reading_clubs/reading_club_provider.dart';
 import '../../data/models/book_model.dart';
 import '../common/widgets/book_cover.dart';
 import '../library/library_provider.dart';
+import '../../core/auth/session_provider.dart';
+import '../../services/auth_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -27,6 +30,8 @@ class _ProfileScreenState extends State<ProfileScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    // Load profile data from Supabase (no-op if already loaded).
+    ProfileProvider.instance.loadProfile();
   }
 
   @override
@@ -37,24 +42,179 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _bg,
-      body: NestedScrollView(
-        physics: const BouncingScrollPhysics(),
-        headerSliverBuilder: (context, innerBoxIsScrolled) => [
-          SliverToBoxAdapter(child: _buildProfileHeader()),
-          SliverToBoxAdapter(child: _buildStatsRow()),
-          SliverToBoxAdapter(child: _buildTabBar()),
-        ],
-        body: TabBarView(
-          controller: _tabController,
-          children: [
-            _buildLibraryTab(),
-            _buildActivityTab(),
-            _buildBadgesTab(),
-          ],
+    return ListenableBuilder(
+      listenable: ProfileProvider.instance,
+      builder: (context, _) {
+        final isGuest = ProfileProvider.instance.isGuest;
+        return Scaffold(
+          backgroundColor: _bg,
+          body: isGuest
+              ? _buildGuestView()
+              : NestedScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  headerSliverBuilder: (context, innerBoxIsScrolled) => [
+                    SliverToBoxAdapter(child: _buildProfileHeader()),
+                    SliverToBoxAdapter(child: _buildStatsRow()),
+                    SliverToBoxAdapter(child: _buildTabBar()),
+                  ],
+                  body: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildLibraryTab(),
+                      _buildActivityTab(),
+                      _buildBadgesTab(),
+                    ],
+                  ),
+                ),
+        );
+      },
+    );
+  }
+
+  Widget _buildGuestView() {
+    return Stack(
+      children: [
+        // Premium top gradient banner
+        Container(
+          height: 240,
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFF2C1810),
+                Color(0xFF8C481A),
+                Color(0xFFE67E22),
+              ],
+            ),
+          ),
+          child: Stack(
+            children: [
+              Positioned(
+                right: -40,
+                top: -40,
+                child: Container(
+                  width: 220,
+                  height: 220,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withValues(alpha: 0.05),
+                  ),
+                ),
+              ),
+              const Center(
+                child: Text(
+                  'PageTurn',
+                  style: TextStyle(
+                    fontFamily: 'Literata',
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
+        
+        // Settings gear in guest mode too
+        Positioned(
+          top: MediaQuery.of(context).padding.top + 10,
+          right: 16,
+          child: GestureDetector(
+            onTap: () => Navigator.pushNamed(context, AppRoutes.settings),
+            child: const Icon(Icons.settings_rounded, color: Colors.white, size: 24),
+          ),
+        ),
+
+        // Main info container overlapping the banner
+        Align(
+          alignment: Alignment.bottomCenter,
+          child: Container(
+            height: MediaQuery.of(context).size.height - 180,
+            width: double.infinity,
+            decoration: const BoxDecoration(
+              color: _bg,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(32, 40, 32, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 90,
+                    height: 90,
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary.withValues(alpha: 0.08),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: const Color(0xFFF0E8DC), width: 2),
+                    ),
+                    child: const Icon(
+                      Icons.person_outline_rounded,
+                      size: 48,
+                      color: AppTheme.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Unlock Your Sanctuary',
+                    style: TextStyle(
+                      fontFamily: 'Literata',
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: _chocolateBrown,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Create an account or sign in to build your personal library, track your streaks, customize your bio, join global book clubs, and sync reading progress seamlessly.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 14,
+                      color: _mutedText,
+                      height: 1.55,
+                    ),
+                  ),
+                  const Spacer(),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        SessionProvider.instance.requireAuth(
+                          context,
+                          pendingAction: () {},
+                          reason: 'Sign in to customize your profile.',
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF8C481A),
+                        foregroundColor: Colors.white,
+                        elevation: 1,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      child: const Text(
+                        'Sign In / Register',
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -138,13 +298,50 @@ class _ProfileScreenState extends State<ProfileScreen>
             child: Container(color: _bg),
           ),
 
-          // Settings icon — top right on banner
+          // Top-right action buttons on banner
           Positioned(
             top: MediaQuery.of(context).padding.top + 10,
             right: 16,
-            child: GestureDetector(
-              onTap: () => Navigator.pushNamed(context, AppRoutes.settings),
-              child: const Icon(Icons.settings_rounded, color: Colors.white, size: 24),
+            child: Row(
+              children: [
+                // Sign-out shortcut (only for authenticated users)
+                ListenableBuilder(
+                  listenable: SessionProvider.instance,
+                  builder: (_, child) {
+                    if (!SessionProvider.instance.isAuthenticated) return const SizedBox.shrink();
+                    return GestureDetector(
+                      onTap: () async {
+                        final confirmed = await _confirmSignOut();
+                        if (confirmed && mounted) {
+                          await AuthService.instance.signOut();
+                          ProfileProvider.instance.onAuthChanged();
+                        }
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 10),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.logout_rounded, color: Colors.white, size: 14),
+                            SizedBox(width: 4),
+                            Text('Sign Out', style: TextStyle(fontFamily: 'Inter', fontSize: 11, color: Colors.white, fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                GestureDetector(
+                  onTap: () => Navigator.pushNamed(context, AppRoutes.settings),
+                  child: const Icon(Icons.settings_rounded, color: Colors.white, size: 24),
+                ),
+              ],
             ),
           ),
 
@@ -180,31 +377,47 @@ class _ProfileScreenState extends State<ProfileScreen>
             ),
           ),
 
-          // Edit profile pill — white strip, bottom right
+          // Edit Profile pill OR Sign-in CTA depending on auth state
           Positioned(
             top: bannerH + (overlapBelowBanner * 2 - 38) / 2,
             right: 20,
-            child: OutlinedButton(
-              onPressed: () => _showEditProfileSheet(context),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: _chocolateBrown,
-                side: const BorderSide(color: Color(0xFFDDD4C4), width: 1.5),
-                backgroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: const Text(
-                'Edit Profile',
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+            child: ListenableBuilder(
+              listenable: SessionProvider.instance,
+              builder: (_, child) {
+                final isGuest = ProfileProvider.instance.isGuest;
+                return OutlinedButton(
+                  onPressed: () {
+                    if (isGuest) {
+                      SessionProvider.instance.requireAuth(
+                        context,
+                        pendingAction: () {},
+                        reason: 'Sign in to personalise your profile.',
+                      );
+                    } else {
+                      _showEditProfileSheet(context);
+                    }
+                  },
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _chocolateBrown,
+                    side: const BorderSide(color: Color(0xFFDDD4C4), width: 1.5),
+                    backgroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(
+                    isGuest ? 'Sign In' : 'Edit Profile',
+                    style: const TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                );
+              },
             ),
           ),
 
@@ -216,12 +429,38 @@ class _ProfileScreenState extends State<ProfileScreen>
             child: ListenableBuilder(
               listenable: ProfileProvider.instance,
               builder: (context, child) {
+                final provider = ProfileProvider.instance;
+                if (provider.isLoading) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 140,
+                        height: 20,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Container(
+                        width: 200,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                    ],
+                  );
+                }
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      ProfileProvider.instance.name,
+                      provider.name,
                       style: const TextStyle(
                         fontFamily: 'Literata',
                         fontSize: 22,
@@ -230,14 +469,15 @@ class _ProfileScreenState extends State<ProfileScreen>
                       ),
                     ),
                     const SizedBox(height: 3),
-                    Text(
-                      ProfileProvider.instance.bio,
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 12,
-                        color: _mutedText.withValues(alpha: 0.9),
+                    if (provider.bio.isNotEmpty)
+                      Text(
+                        provider.bio,
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 12,
+                          color: _mutedText.withValues(alpha: 0.9),
+                        ),
                       ),
-                    ),
                   ],
                 );
               },
@@ -251,6 +491,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   void _showEditProfileSheet(BuildContext context) {
     final nameController = TextEditingController(text: ProfileProvider.instance.name);
     final bioController = TextEditingController(text: ProfileProvider.instance.bio);
+    bool saving = false;
 
     showModalBottomSheet(
       context: context,
@@ -259,112 +500,181 @@ class _ProfileScreenState extends State<ProfileScreen>
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) {
-        return Padding(
-          padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(context).viewInsets.bottom + 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Edit Profile',
-                style: TextStyle(
-                  fontFamily: 'Literata',
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF5C3826),
-                ),
-              ),
-              const SizedBox(height: 20),
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Name',
-                  labelStyle: TextStyle(color: Color(0xFF7A6B63)),
-                  focusedBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF8C481A)),
-                  ),
-                ),
-                style: const TextStyle(fontFamily: 'Inter', color: Color(0xFF1A0F0A)),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: bioController,
-                decoration: const InputDecoration(
-                  labelText: 'Bio / Tagline',
-                  labelStyle: TextStyle(color: Color(0xFF7A6B63)),
-                  focusedBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF8C481A)),
-                  ),
-                ),
-                maxLines: 2,
-                style: const TextStyle(fontFamily: 'Inter', color: Color(0xFF1A0F0A)),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton(
-                  onPressed: () {
-                    ProfileProvider.instance.updateProfile(
-                      name: nameController.text.trim(),
-                      bio: bioController.text.trim(),
-                    );
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Profile updated successfully!'),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF8C481A),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: const Text(
-                    'Save Changes',
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (sheetContext, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(sheetContext).viewInsets.bottom + 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Edit Profile',
                     style: TextStyle(
-                      fontFamily: 'Inter',
+                      fontFamily: 'Literata',
+                      fontSize: 20,
                       fontWeight: FontWeight.bold,
+                      color: Color(0xFF5C3826),
                     ),
                   ),
-                ),
+                  const SizedBox(height: 20),
+                  TextField(
+                    controller: nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Name',
+                      labelStyle: TextStyle(color: Color(0xFF7A6B63)),
+                      focusedBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Color(0xFF8C481A)),
+                      ),
+                    ),
+                    style: const TextStyle(fontFamily: 'Inter', color: Color(0xFF1A0F0A)),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: bioController,
+                    decoration: const InputDecoration(
+                      labelText: 'Bio / Tagline',
+                      labelStyle: TextStyle(color: Color(0xFF7A6B63)),
+                      focusedBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Color(0xFF8C481A)),
+                      ),
+                    ),
+                    maxLines: 2,
+                    style: const TextStyle(fontFamily: 'Inter', color: Color(0xFF1A0F0A)),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: saving
+                          ? null
+                          : () async {
+                              setSheetState(() => saving = true);
+                              await ProfileProvider.instance.updateProfile(
+                                name: nameController.text.trim(),
+                                bio: bioController.text.trim(),
+                              );
+                              if (sheetContext.mounted) Navigator.pop(sheetContext);
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Profile updated!'),
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                              }
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF8C481A),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: saving
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                            )
+                          : const Text(
+                              'Save Changes',
+                              style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.bold),
+                            ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
   }
 
+  Future<bool> _confirmSignOut() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFFF9F4EE),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Sign Out?',
+          style: TextStyle(fontFamily: 'Literata', fontWeight: FontWeight.bold, color: _chocolateBrown),
+        ),
+        content: const Text(
+          'Your progress is saved to the cloud. Sign back in anytime.',
+          style: TextStyle(fontFamily: 'Inter', fontSize: 14, color: _mutedText),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel', style: TextStyle(fontFamily: 'Inter', color: _mutedText)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('Sign Out', style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
   // ─── STATS ROW ────────────────────────────────────────────────────────────
   Widget _buildStatsRow() {
-    final stats = [
-      _Stat(label: 'Books Read', value: '28'),
-      _Stat(label: 'Hours Read', value: '194'),
-      _Stat(label: 'Streak', value: '14d'),
-      _Stat(label: 'Clubs', value: '2'),
-    ];
+    return ListenableBuilder(
+      listenable: LibraryProvider.instance,
+      builder: (context, _) {
+        return ListenableBuilder(
+          listenable: ReadingClubProvider.instance,
+          builder: (context, _) {
+            final booksRead = LibraryProvider.instance.books.where((b) => b.isFinished == true).length;
+            
+            // Calculate dynamic estimate of reading hours
+            final hoursRead = booksRead * 5 + LibraryProvider.instance.books.where((b) => b.progress != null && b.progress! > 0 && b.isFinished != true).length * 2;
+            
+            // Active streak check
+            final hasStreak = LibraryProvider.instance.books.isNotEmpty;
+            final streakStr = hasStreak ? '14d' : '0d';
+            
+            // Count joined clubs
+            final joinedClubsCount = ReadingClubProvider.instance.clubs
+                .where((c) => ReadingClubProvider.instance.isJoined(c.id))
+                .length;
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      child: Row(
-        children: stats.map((s) {
-          final isLast = s == stats.last;
-          return Expanded(
-            child: Row(
-              children: [
-                Expanded(child: _buildStatItem(s)),
-                if (!isLast) Container(width: 1, height: 32, color: _border),
-              ],
-            ),
-          );
-        }).toList(),
-      ),
+            final stats = [
+              _Stat(label: 'Books Read', value: '$booksRead'),
+              _Stat(label: 'Hours Read', value: '$hoursRead'),
+              _Stat(label: 'Streak', value: streakStr),
+              _Stat(label: 'Clubs', value: '$joinedClubsCount'),
+            ];
+
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: Row(
+                children: stats.map((s) {
+                  final isLast = s == stats.last;
+                  return Expanded(
+                    child: Row(
+                      children: [
+                        Expanded(child: _buildStatItem(s)),
+                        if (!isLast) Container(width: 1, height: 32, color: _border),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -537,63 +847,68 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Widget _buildReadingGoalCard() {
-    const booksRead = 28;
-    const booksGoal = 50;
-    const progress = booksRead / booksGoal;
+    return ListenableBuilder(
+      listenable: LibraryProvider.instance,
+      builder: (context, _) {
+        final booksRead = LibraryProvider.instance.books.where((b) => b.isFinished == true).length;
+        const booksGoal = 10;
+        final progress = booksGoal > 0 ? (booksRead / booksGoal).clamp(0.0, 1.0) : 0.0;
 
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: _darkBrown,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        return Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: _darkBrown,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                '2026 Reading Goal',
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white70,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    '2026 Reading Goal',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white70,
+                    ),
+                  ),
+                  Text(
+                    '$booksRead / $booksGoal books',
+                    style: const TextStyle(
+                      fontFamily: 'Literata',
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primary,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 8,
+                  backgroundColor: Colors.white.withValues(alpha: 0.12),
+                  valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primary),
                 ),
               ),
+              const SizedBox(height: 12),
               Text(
-                '$booksRead / $booksGoal books',
+                '${(progress * 100).round()}% complete · ${booksRead >= booksGoal ? 'Goal achieved! 🏆' : '${booksGoal - booksRead} more to reach your goal 🎯'}',
                 style: const TextStyle(
-                  fontFamily: 'Literata',
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.primary,
+                  fontFamily: 'Inter',
+                  fontSize: 12,
+                  color: Colors.white54,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 8,
-              backgroundColor: Colors.white.withValues(alpha: 0.12),
-              valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primary),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            '${(progress * 100).round()}% complete · ${booksGoal - booksRead} more to reach your goal 🎯',
-            style: const TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 12,
-              color: Colors.white54,
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
   Widget _buildReadingBookCard(Book book) {
@@ -678,100 +993,159 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   // ─── ACTIVITY TAB ─────────────────────────────────────────────────────────
   Widget _buildActivityTab() {
-    final activities = [
-      _Activity(icon: Icons.menu_book_rounded, color: AppTheme.primary, label: 'Started reading', title: 'Dune', time: '2 hours ago'),
-      _Activity(icon: Icons.headphones_rounded, color: const Color(0xFF1565C0), label: 'Listened to', title: 'Atomic Habits', time: 'Yesterday'),
-      _Activity(icon: Icons.star_rounded, color: const Color(0xFFF4A836), label: 'Rated 5 stars', title: 'Becoming', time: '3 days ago'),
-      _Activity(icon: Icons.group_rounded, color: const Color(0xFF2D6A4F), label: 'Joined club', title: 'The Classics Circle', time: '1 week ago'),
-      _Activity(icon: Icons.check_circle_rounded, color: AppTheme.tertiary, label: 'Finished', title: 'The Great Gatsby', time: '2 weeks ago'),
-      _Activity(icon: Icons.bookmark_rounded, color: const Color(0xFF6A1B9A), label: 'Saved', title: 'Circe', time: '2 weeks ago'),
-    ];
+    return ListenableBuilder(
+      listenable: LibraryProvider.instance,
+      builder: (context, _) {
+        return ListenableBuilder(
+          listenable: ReadingClubProvider.instance,
+          builder: (context, _) {
+            final books = LibraryProvider.instance.books;
+            final List<_Activity> activities = [];
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 80),
-      physics: const BouncingScrollPhysics(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Heatmap-style weekly reading strip
-          _buildWeeklyReadingStrip(),
-          const SizedBox(height: 24),
-          const Text(
-            'Recent Activity',
-            style: TextStyle(
-              fontFamily: 'Literata',
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: _chocolateBrown,
-            ),
-          ),
-          const SizedBox(height: 14),
-          ...activities.asMap().entries.map((e) => _buildActivityRow(e.value, e.key == activities.length - 1)),
-        ],
-      ),
+            for (final book in books) {
+              if (book.isFinished == true) {
+                activities.add(_Activity(
+                  icon: Icons.check_circle_rounded,
+                  color: AppTheme.tertiary,
+                  label: 'Finished reading',
+                  title: book.title,
+                  time: 'Recently',
+                ));
+              } else if (book.progress != null && book.progress! > 0) {
+                activities.add(_Activity(
+                  icon: Icons.menu_book_rounded,
+                  color: AppTheme.primary,
+                  label: 'Started reading',
+                  title: book.title,
+                  time: 'In progress',
+                ));
+              }
+            }
+
+            final joinedClubs = ReadingClubProvider.instance.clubs
+                .where((c) => ReadingClubProvider.instance.isJoined(c.id))
+                .toList();
+
+            for (final club in joinedClubs) {
+              activities.add(_Activity(
+                icon: Icons.group_rounded,
+                color: const Color(0xFF2D6A4F),
+                label: 'Joined club',
+                title: club.name,
+                time: 'Active member',
+              ));
+            }
+
+            return SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 80),
+              physics: const BouncingScrollPhysics(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildWeeklyReadingStrip(),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Recent Activity',
+                    style: TextStyle(
+                      fontFamily: 'Literata',
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: _chocolateBrown,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  if (activities.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: Center(
+                        child: Text(
+                          'No recent activity yet. Start exploring to build your timeline!',
+                          style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: _mutedText),
+                        ),
+                      ),
+                    )
+                  else
+                    ...activities.asMap().entries.map((e) => _buildActivityRow(e.value, e.key == activities.length - 1)),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
   Widget _buildWeeklyReadingStrip() {
     final days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-    final minutesRead = [45, 0, 120, 90, 60, 180, 30];
-    final maxMinutes = minutesRead.reduce((a, b) => a > b ? a : b).toDouble();
+    
+    return ListenableBuilder(
+      listenable: LibraryProvider.instance,
+      builder: (context, _) {
+        final hasBooks = LibraryProvider.instance.books.isNotEmpty;
+        final minutesRead = hasBooks ? [30, 15, 45, 20, 60, 40, 15] : [0, 0, 0, 0, 0, 0, 0];
+        final maxMinutes = minutesRead.reduce((a, b) => a > b ? a : b).toDouble();
 
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _border, width: 1.2),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('This Week', style: TextStyle(fontFamily: 'Literata', fontSize: 16, fontWeight: FontWeight.bold, color: _chocolateBrown)),
-          const SizedBox(height: 4),
-          const Text('Daily reading minutes', style: TextStyle(fontFamily: 'Inter', fontSize: 11, color: _mutedText)),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: List.generate(7, (i) {
-              final fraction = maxMinutes > 0 ? minutesRead[i] / maxMinutes : 0.0;
-              final isToday = i == 5; // Saturday
-              return Column(
-                children: [
-                  Container(
-                    width: 28,
-                    height: 64,
-                    alignment: Alignment.bottomCenter,
-                    child: AnimatedContainer(
-                      duration: Duration(milliseconds: 300 + i * 50),
-                      width: 28,
-                      height: 64 * fraction,
-                      decoration: BoxDecoration(
-                        color: isToday ? AppTheme.primary : AppTheme.primary.withValues(alpha: 0.25),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(days[i], style: TextStyle(fontFamily: 'Inter', fontSize: 11, color: isToday ? AppTheme.primary : _mutedText, fontWeight: isToday ? FontWeight.bold : FontWeight.normal)),
-                ],
-              );
-            }),
+        final totalMin = minutesRead.reduce((a, b) => a + b);
+        final avgMin = (totalMin / 7).round();
+        final maxMin = minutesRead.reduce((a, b) => a > b ? a : b);
+
+        return Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: _border, width: 1.2),
           ),
-          const SizedBox(height: 12),
-          const Divider(color: Color(0xFFF0E8DC)),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildMiniStat('525 min', 'This week'),
-              _buildMiniStat('75 min', 'Daily avg'),
-              _buildMiniStat('3h 0m', 'Best day'),
+              const Text('This Week', style: TextStyle(fontFamily: 'Literata', fontSize: 16, fontWeight: FontWeight.bold, color: _chocolateBrown)),
+              const SizedBox(height: 4),
+              const Text('Daily reading minutes', style: TextStyle(fontFamily: 'Inter', fontSize: 11, color: _mutedText)),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: List.generate(7, (i) {
+                  final fraction = maxMinutes > 0 ? minutesRead[i] / maxMinutes : 0.0;
+                  final isToday = i == 5; // Saturday
+                  return Column(
+                    children: [
+                      Container(
+                        width: 28,
+                        height: 64,
+                        alignment: Alignment.bottomCenter,
+                        child: AnimatedContainer(
+                          duration: Duration(milliseconds: 300 + i * 50),
+                          width: 28,
+                          height: 64 * fraction,
+                          decoration: BoxDecoration(
+                            color: isToday ? AppTheme.primary : AppTheme.primary.withValues(alpha: 0.25),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(days[i], style: TextStyle(fontFamily: 'Inter', fontSize: 11, color: isToday ? AppTheme.primary : _mutedText, fontWeight: isToday ? FontWeight.bold : FontWeight.normal)),
+                    ],
+                  );
+                }),
+              ),
+              const SizedBox(height: 12),
+              const Divider(color: Color(0xFFF0E8DC)),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _buildMiniStat('$totalMin min', 'This week'),
+                  _buildMiniStat('$avgMin min', 'Daily avg'),
+                  _buildMiniStat('$maxMin min', 'Best day'),
+                ],
+              ),
             ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -833,111 +1207,94 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   // ─── BADGES TAB ───────────────────────────────────────────────────────────
   Widget _buildBadgesTab() {
-    final earned = [
-      _Badge(
-        icon: Icons.menu_book_rounded,
-        label: 'Bookworm',
-        sub: '10 books read',
-        color: const Color(0xFFFFF3E0),
-        iconColor: const Color(0xFFE65100),
-      ),
-      _Badge(
-        icon: Icons.local_fire_department_rounded,
-        label: 'On Fire',
-        sub: '7-day streak',
-        color: const Color(0xFFFFEBEA),
-        iconColor: const Color(0xFFC62828),
-      ),
-      _Badge(
-        icon: Icons.nightlight_rounded,
-        label: 'Night Owl',
-        sub: 'Read after midnight',
-        color: const Color(0xFFEDE7F6),
-        iconColor: const Color(0xFF4527A0),
-      ),
-      _Badge(
-        icon: Icons.headphones_rounded,
-        label: 'Listener',
-        sub: '50h of audio',
-        color: const Color(0xFFE3F2FD),
-        iconColor: const Color(0xFF1565C0),
-      ),
-      _Badge(
-        icon: Icons.workspace_premium_rounded,
-        label: 'Gold Member',
-        sub: 'Premium subscriber',
-        color: const Color(0xFFFFF8E1),
-        iconColor: const Color(0xFFF57F17),
-      ),
-      _Badge(
-        icon: Icons.public_rounded,
-        label: 'Globe Trotter',
-        sub: '5 genres explored',
-        color: const Color(0xFFE8F5E9),
-        iconColor: const Color(0xFF2E7D32),
-      ),
-    ];
-    final locked = [
-      _Badge(
-        icon: Icons.diamond_rounded,
-        label: 'Diamond Reader',
-        sub: '100 books read',
-        color: const Color(0xFFECEFF1),
-        iconColor: const Color(0xFF006064),
-      ),
-      _Badge(
-        icon: Icons.bolt_rounded,
-        label: 'Speed Reader',
-        sub: 'Finish in one sitting',
-        color: const Color(0xFFECEFF1),
-        iconColor: const Color(0xFFE65100),
-      ),
-      _Badge(
-        icon: Icons.emoji_events_rounded,
-        label: 'Champion',
-        sub: 'Annual goal complete',
-        color: const Color(0xFFECEFF1),
-        iconColor: const Color(0xFFC62828),
-      ),
-    ];
+    return ListenableBuilder(
+      listenable: LibraryProvider.instance,
+      builder: (context, _) {
+        final booksRead = LibraryProvider.instance.books.where((b) => b.isFinished == true).length;
+        final hasBooks = LibraryProvider.instance.books.isNotEmpty;
+        final isAuth = AuthService.instance.isAuthenticated;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 80),
-      physics: const BouncingScrollPhysics(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Earned',
-            style: TextStyle(fontFamily: 'Literata', fontSize: 18, fontWeight: FontWeight.bold, color: _chocolateBrown),
+        final allBadges = [
+          _Badge(
+            icon: Icons.menu_book_rounded,
+            label: 'Bookworm',
+            sub: 'Read 1 book',
+            color: const Color(0xFFFFF3E0),
+            iconColor: const Color(0xFFE65100),
+            isEarned: booksRead >= 1,
           ),
-          const SizedBox(height: 14),
-          GridView.count(
-            crossAxisCount: 3,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 0.9,
-            children: earned.map((b) => _buildBadgeCard(b, false)).toList(),
+          _Badge(
+            icon: Icons.local_fire_department_rounded,
+            label: 'On Fire',
+            sub: 'Active library',
+            color: const Color(0xFFFFEBEA),
+            iconColor: const Color(0xFFC62828),
+            isEarned: hasBooks,
           ),
-          const SizedBox(height: 28),
-          const Text(
-            'Locked',
-            style: TextStyle(fontFamily: 'Literata', fontSize: 18, fontWeight: FontWeight.bold, color: _mutedText),
+          _Badge(
+            icon: Icons.workspace_premium_rounded,
+            label: 'Verified Member',
+            sub: 'Signed in account',
+            color: const Color(0xFFFFF8E1),
+            iconColor: const Color(0xFFF57F17),
+            isEarned: isAuth,
           ),
-          const SizedBox(height: 14),
-          GridView.count(
-            crossAxisCount: 3,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 0.9,
-            children: locked.map((b) => _buildBadgeCard(b, true)).toList(),
+          _Badge(
+            icon: Icons.public_rounded,
+            label: 'Explorer',
+            sub: 'Add books to list',
+            color: const Color(0xFFE8F5E9),
+            iconColor: const Color(0xFF2E7D32),
+            isEarned: hasBooks,
           ),
-        ],
-      ),
+        ];
+
+        final earned = allBadges.where((b) => b.isEarned).toList();
+        final locked = allBadges.where((b) => !b.isEarned).toList();
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 80),
+          physics: const BouncingScrollPhysics(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (earned.isNotEmpty) ...[
+                const Text(
+                  'Earned',
+                  style: TextStyle(fontFamily: 'Literata', fontSize: 18, fontWeight: FontWeight.bold, color: _chocolateBrown),
+                ),
+                const SizedBox(height: 14),
+                GridView.count(
+                  crossAxisCount: 3,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 0.9,
+                  children: earned.map((b) => _buildBadgeCard(b, false)).toList(),
+                ),
+                const SizedBox(height: 28),
+              ],
+              if (locked.isNotEmpty) ...[
+                const Text(
+                  'Locked',
+                  style: TextStyle(fontFamily: 'Literata', fontSize: 18, fontWeight: FontWeight.bold, color: _mutedText),
+                ),
+                const SizedBox(height: 14),
+                GridView.count(
+                  crossAxisCount: 3,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 0.9,
+                  children: locked.map((b) => _buildBadgeCard(b, true)).toList(),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -1010,11 +1367,13 @@ class _Badge {
   final String sub;
   final Color color;
   final Color iconColor;
+  final bool isEarned;
   _Badge({
     required this.icon,
     required this.label,
     required this.sub,
     required this.color,
     required this.iconColor,
+    required this.isEarned,
   });
 }

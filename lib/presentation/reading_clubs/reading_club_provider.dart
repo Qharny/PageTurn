@@ -1,4 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../services/auth_service.dart';
+import '../../services/supabase_service.dart';
+import '../../data/models/book_model.dart';
 
 class ReadingClub {
   final String id;
@@ -25,154 +30,53 @@ class ReadingClub {
 }
 
 class ReadingClubMessage {
+  final String id;
   final String sender;
   final String text;
   final DateTime timestamp;
   final bool isMe;
+  final Book? sharedBook;
 
   ReadingClubMessage({
+    required this.id,
     required this.sender,
     required this.text,
     required this.timestamp,
     required this.isMe,
+    this.sharedBook,
+  });
+}
+
+class ReadingClubMember {
+  final String name;
+  final String role;
+
+  ReadingClubMember({
+    required this.name,
+    required this.role,
   });
 }
 
 class ReadingClubProvider extends ChangeNotifier {
   static final ReadingClubProvider instance = ReadingClubProvider._internal();
   ReadingClubProvider._internal() {
-    // Populate some baseline chat messages
-    _chats['classics'] = [
-      ReadingClubMessage(
-        sender: 'Amina Osei',
-        text: 'Welcome to the classics circle! 📖 Who is ready for this month\'s pick?',
-        timestamp: DateTime.now().subtract(const Duration(hours: 3)),
-        isMe: false,
-      ),
-      ReadingClubMessage(
-        sender: 'Marcus Vance',
-        text: 'I\'ve already read the first three chapters. The writing is incredibly dense but beautiful.',
-        timestamp: DateTime.now().subtract(const Duration(hours: 2)),
-        isMe: false,
-      ),
-    ];
-    _chats['afrofuturism'] = [
-      ReadingClubMessage(
-        sender: 'Kofi Mensah',
-        text: 'The world-building in this book is insane! 🚀',
-        timestamp: DateTime.now().subtract(const Duration(hours: 1)),
-        isMe: false,
-      ),
-    ];
-    _chats['scifi'] = [
-      ReadingClubMessage(
-        sender: 'Marcus Vance',
-        text: 'The space opera elements here are superb.',
-        timestamp: DateTime.now().subtract(const Duration(minutes: 45)),
-        isMe: false,
-      ),
-    ];
-    _chats['mystery'] = [
-      ReadingClubMessage(
-        sender: 'Sarah Jenkins',
-        text: 'Do not spoil the solution to the mystery! 🤫 Let\'s post theories here.',
-        timestamp: DateTime.now().subtract(const Duration(hours: 4)),
-        isMe: false,
-      ),
-    ];
-    _chats['history'] = [
-      ReadingClubMessage(
-        sender: 'Elena Rostova',
-        text: 'We start our journey in ancient Egypt tomorrow!',
-        timestamp: DateTime.now().subtract(const Duration(hours: 5)),
-        isMe: false,
-      ),
-    ];
+    loadClubs();
   }
 
-  final List<ReadingClub> _clubs = [
-    ReadingClub(
-      id: 'classics',
-      name: 'The Classics Circle',
-      memberCount: 12420,
-      description: 'Exploring timeless works from Dickens to Dostoevsky. Read alongside fellow classics enthusiasts, debate themes, and uncover historical contexts.',
-      icon: Icons.menu_book_rounded,
-      iconColor: const Color(0xFF2D6A4F),
-      bgColor: const Color(0xFFE8F0EC),
-      rules: [
-        'Respect fellow members and their interpretations.',
-        'No spoilers outside the designated discussion threads.',
-        'Participate in the monthly live debate sessions.'
-      ],
-      moderator: 'Amina Osei',
-    ),
-    ReadingClub(
-      id: 'afrofuturism',
-      name: 'Afrofuturism Hub',
-      memberCount: 8900,
-      description: 'Where African imagination meets the future of literature. Discover science fiction, fantasy, and speculative fiction by African writers.',
-      icon: Icons.rocket_launch_rounded,
-      iconColor: const Color(0xFFD97706),
-      bgColor: const Color(0xFFFDF0E9),
-      rules: [
-        'Focus on works by writers of the African continent and diaspora.',
-        'Keep discussions constructive and encouraging.',
-        'Support indie and emerging sci-fi authors.'
-      ],
-      moderator: 'Kofi Mensah',
-    ),
-    ReadingClub(
-      id: 'scifi',
-      name: 'Sci-Fi Collective',
-      memberCount: 21300,
-      description: 'For those who dream beyond the stars and between galaxies. Hard science, cyberpunk, space opera, and dystopian futures are all explored here.',
-      icon: Icons.blur_on_rounded,
-      iconColor: const Color(0xFF1565C0),
-      bgColor: const Color(0xFFE3F2FD),
-      rules: [
-        'All sci-fi subgenres are welcome.',
-        'Keep post titles clear of spoilers.',
-        'No hate speech or gatekeeping.'
-      ],
-      moderator: 'Marcus Vance',
-    ),
-    ReadingClub(
-      id: 'mystery',
-      name: 'Mystery Minds',
-      memberCount: 5740,
-      description: 'Unraveling clues, suspects, and unexpected twists together. Dedicated to murder mysteries, thrillers, noir, and classic whodunits.',
-      icon: Icons.search_rounded,
-      iconColor: const Color(0xFF6A1B9A),
-      bgColor: const Color(0xFFF3E5F5),
-      rules: [
-        'Do not spoil the solution to the mystery!',
-        'Share your theories in the speculation channel.',
-        'Suggest monthly read choices in the polls.'
-      ],
-      moderator: 'Sarah Jenkins',
-    ),
-    ReadingClub(
-      id: 'history',
-      name: 'Historical Horizons',
-      memberCount: 3210,
-      description: 'Journeying through history, one page at a time. From ancient civilizations to recent history, we explore novels and narrative non-fiction.',
-      icon: Icons.history_edu_rounded,
-      iconColor: const Color(0xFF4E342E),
-      bgColor: const Color(0xFFEFEBE9),
-      rules: [
-        'Cite historical sources where appropriate.',
-        'Discuss historical events objectively.',
-        'Recommendations should have a historical core.'
-      ],
-      moderator: 'Elena Rostova',
-    ),
-  ];
-
-  final Set<String> _joinedClubs = {'classics', 'mystery'};
+  // ── State ──────────────────────────────────────────────────
+  final List<ReadingClub> _clubs = [];
+  final Set<String> _joinedClubs = {};
   final Map<String, List<ReadingClubMessage>> _chats = {};
+  final Map<String, List<ReadingClubMember>> _clubMembersMap = {};
+  final Map<String, String> _profileNames = {};
+  bool _isLoading = false;
 
+  RealtimeChannel? _activeChannel;
+
+  // ── Getters ────────────────────────────────────────────────
   List<ReadingClub> get clubs => _clubs;
   Set<String> get joinedClubs => _joinedClubs;
+  bool get isLoading => _isLoading;
 
   bool isJoined(String id) => _joinedClubs.contains(id);
 
@@ -180,34 +84,408 @@ class ReadingClubProvider extends ChangeNotifier {
     return _chats[clubId] ?? [];
   }
 
-  void toggleJoin(String id) {
-    if (_joinedClubs.contains(id)) {
-      _joinedClubs.remove(id);
-      final club = _clubs.firstWhere((c) => c.id == id);
-      club.memberCount--;
-    } else {
-      _joinedClubs.add(id);
-      final club = _clubs.firstWhere((c) => c.id == id);
-      club.memberCount++;
-    }
-    notifyListeners();
+  List<ReadingClubMember> getMembers(String clubId) {
+    return _clubMembersMap[clubId] ?? [];
   }
 
-  void addMessage(String clubId, String sender, String text, {bool isMe = true}) {
-    if (!_chats.containsKey(clubId)) {
-      _chats[clubId] = [];
+  // ── Supabase Init Check ────────────────────────────────────
+  bool get _isSupabaseInitialized {
+    try {
+      Supabase.instance;
+      return true;
+    } catch (_) {
+      return false;
     }
-    _chats[clubId]!.add(ReadingClubMessage(
-      sender: sender,
-      text: text,
-      timestamp: DateTime.now(),
-      isMe: isMe,
-    ));
-    notifyListeners();
   }
 
-  void addClub(ReadingClub club) {
-    _clubs.add(club);
+  // ── Data Loading ───────────────────────────────────────────
+
+  /// Fetches all book clubs and the current user's memberships from Supabase.
+  Future<void> loadClubs() async {
+    if (!_isSupabaseInitialized) return;
+    _isLoading = true;
     notifyListeners();
+
+    try {
+      // 1. Fetch clubs
+      final clubsRes = await SupabaseService.client
+          .from('clubs')
+          .select('*, profiles(name)');
+
+      _clubs.clear();
+      for (final item in (clubsRes as List)) {
+        final rulesList = (item['rules'] as List<dynamic>?)
+                ?.map((r) => r.toString())
+                .toList() ??
+            [];
+
+        final moderatorName = item['profiles'] != null && item['profiles']['name'] != null
+            ? item['profiles']['name'] as String
+            : 'Moderator';
+
+        final clubId = item['id'] as String;
+        final count = await _fetchMemberCount(clubId);
+
+        _clubs.add(ReadingClub(
+          id: clubId,
+          name: item['name'] as String,
+          description: item['description'] as String? ?? '',
+          icon: _mapIcon(item['icon'] as String? ?? 'groups'),
+          iconColor: _mapColor(item['icon_color'] as String? ?? '#8C481A'),
+          bgColor: _mapColor(item['bg_color'] as String? ?? '#F9F4EE'),
+          memberCount: count,
+          rules: rulesList,
+          moderator: moderatorName,
+        ));
+      }
+
+      // 2. Fetch memberships for current user
+      final user = AuthService.instance.currentUser;
+      _joinedClubs.clear();
+      if (user != null) {
+        final memberRes = await SupabaseService.client
+            .from('club_members')
+            .select('club_id')
+            .eq('profile_id', user.id);
+
+        for (final item in (memberRes as List)) {
+          _joinedClubs.add(item['club_id'] as String);
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loadClubs: $e');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// Fetches real-time member count for a club.
+  Future<int> _fetchMemberCount(String clubId) async {
+    if (!_isSupabaseInitialized) return 0;
+    try {
+      final res = await SupabaseService.client
+          .from('club_members')
+          .select('profile_id')
+          .eq('club_id', clubId);
+      return (res as List).length;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// Loads member profiles for a specific club.
+  Future<void> loadMembers(String clubId) async {
+    if (!_isSupabaseInitialized) return;
+    try {
+      final res = await SupabaseService.client
+          .from('club_members')
+          .select('*, profiles(name)')
+          .eq('club_id', clubId);
+
+      final List<ReadingClubMember> list = [];
+      for (final item in (res as List)) {
+        final profileName = item['profiles'] != null && item['profiles']['name'] != null
+            ? item['profiles']['name'] as String
+            : 'Reader';
+        final isMe = item['profile_id'] == AuthService.instance.currentUser?.id;
+        list.add(ReadingClubMember(
+          name: isMe ? 'You' : profileName,
+          role: isMe ? 'Moderator' : 'Reader',
+        ));
+      }
+      _clubMembersMap[clubId] = list;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading members: $e');
+    }
+  }
+
+  // ── Realtime Group Chat Subscriptions ──────────────────────
+
+  /// Subscribes to the Postgres Realtime stream for messages in the given club.
+  Future<void> subscribeToChat(String clubId) async {
+    if (!_isSupabaseInitialized) return;
+    await unsubscribeFromChat();
+
+    // 1. Fetch initial message history
+    try {
+      final res = await SupabaseService.client
+          .from('club_messages')
+          .select('*, profiles(name)')
+          .eq('club_id', clubId)
+          .order('created_at', ascending: true);
+
+      final List<ReadingClubMessage> list = [];
+      for (final item in (res as List)) {
+        final senderName = item['profiles'] != null && item['profiles']['name'] != null
+            ? item['profiles']['name'] as String
+            : 'Reader';
+        final isMe = item['sender_id'] == AuthService.instance.currentUser?.id;
+
+        Book? sharedBook;
+        if (item['shared_book'] != null) {
+          try {
+            sharedBook = Book.fromJson(Map<String, dynamic>.from(item['shared_book']));
+          } catch (_) {}
+        }
+
+        list.add(ReadingClubMessage(
+          id: item['id'] as String,
+          sender: isMe ? 'Me' : senderName,
+          text: item['text'] as String? ?? '',
+          timestamp: DateTime.parse(item['created_at'] as String),
+          isMe: isMe,
+          sharedBook: sharedBook,
+        ));
+      }
+      _chats[clubId] = list;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading messages: $e');
+    }
+
+    // 2. Subscribe to realtime stream
+    try {
+      _activeChannel = SupabaseService.client
+          .channel('public:club_messages:club_id=eq.$clubId')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.insert,
+            schema: 'public',
+            table: 'club_messages',
+            filter: PostgresChangeFilter(
+              type: PostgresChangeFilterType.eq,
+              column: 'club_id',
+              value: clubId,
+            ),
+            callback: (payload) async {
+              final newRecord = payload.newRecord;
+              final senderId = newRecord['sender_id'] as String;
+              final senderName = await _getSenderName(senderId);
+              final isMe = senderId == AuthService.instance.currentUser?.id;
+
+              Book? sharedBook;
+              if (newRecord['shared_book'] != null) {
+                try {
+                  sharedBook = Book.fromJson(Map<String, dynamic>.from(newRecord['shared_book']));
+                } catch (_) {}
+              }
+
+              final msg = ReadingClubMessage(
+                id: newRecord['id'] as String,
+                sender: isMe ? 'Me' : senderName,
+                text: newRecord['text'] as String? ?? '',
+                timestamp: DateTime.parse(newRecord['created_at'] as String),
+                isMe: isMe,
+                sharedBook: sharedBook,
+              );
+
+              if (!_chats.containsKey(clubId)) {
+                _chats[clubId] = [];
+              }
+              // Prevent duplicates (local echo vs. realtime stream)
+              if (!_chats[clubId]!.any((m) => m.id == msg.id)) {
+                _chats[clubId]!.add(msg);
+                notifyListeners();
+              }
+            },
+          );
+      _activeChannel!.subscribe();
+    } catch (e) {
+      debugPrint('Error subscribing to realtime: $e');
+    }
+  }
+
+  /// Removes current realtime subscription channel.
+  Future<void> unsubscribeFromChat() async {
+    if (!_isSupabaseInitialized) return;
+    if (_activeChannel != null) {
+      try {
+        await SupabaseService.client.removeChannel(_activeChannel!);
+      } catch (_) {}
+      _activeChannel = null;
+    }
+  }
+
+  // ── Actions ────────────────────────────────────────────────
+
+  /// Joins or leaves a club in Supabase, updating the membership table.
+  Future<void> toggleJoin(String clubId) async {
+    if (!_isSupabaseInitialized) return;
+    final user = AuthService.instance.currentUser;
+    if (user == null) return;
+
+    final alreadyJoined = _joinedClubs.contains(clubId);
+    try {
+      if (alreadyJoined) {
+        await SupabaseService.client
+            .from('club_members')
+            .delete()
+            .eq('club_id', clubId)
+            .eq('profile_id', user.id);
+        _joinedClubs.remove(clubId);
+      } else {
+        await SupabaseService.client
+            .from('club_members')
+            .insert({
+              'club_id': clubId,
+              'profile_id': user.id,
+            });
+        _joinedClubs.add(clubId);
+      }
+
+      // Re-fetch member count and members list
+      final newCount = await _fetchMemberCount(clubId);
+      final index = _clubs.indexWhere((c) => c.id == clubId);
+      if (index != -1) {
+        _clubs[index].memberCount = newCount;
+      }
+      loadMembers(clubId);
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error toggling club membership: $e');
+    }
+  }
+
+  /// Sends a message into the chat, optionally with a shared book.
+  Future<void> addMessage(String clubId, String text, {Book? sharedBook}) async {
+    if (!_isSupabaseInitialized) return;
+    final user = AuthService.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      final res = await SupabaseService.client
+          .from('club_messages')
+          .insert({
+            'club_id': clubId,
+            'sender_id': user.id,
+            'text': text,
+            if (sharedBook != null) 'shared_book': sharedBook.toJson(),
+          })
+          .select()
+          .single();
+
+      final msg = ReadingClubMessage(
+        id: res['id'] as String,
+        sender: 'Me',
+        text: text,
+        timestamp: DateTime.parse(res['created_at'] as String),
+        isMe: true,
+        sharedBook: sharedBook,
+      );
+
+      if (!_chats.containsKey(clubId)) {
+        _chats[clubId] = [];
+      }
+      if (!_chats[clubId]!.any((m) => m.id == msg.id)) {
+        _chats[clubId]!.add(msg);
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Error posting message: $e');
+    }
+  }
+
+  // ── Helpers ────────────────────────────────────────────────
+
+  Future<String> _getSenderName(String senderId) async {
+    if (!_isSupabaseInitialized) return 'Reader';
+    if (senderId == AuthService.instance.currentUser?.id) {
+      return 'Me';
+    }
+    if (_profileNames.containsKey(senderId)) {
+      return _profileNames[senderId]!;
+    }
+    try {
+      final res = await SupabaseService.client
+          .from('profiles')
+          .select('name')
+          .eq('id', senderId)
+          .maybeSingle();
+      if (res != null && res['name'] != null) {
+        final name = res['name'] as String;
+        _profileNames[senderId] = name;
+        return name;
+      }
+    } catch (_) {}
+    return 'Reader';
+  }
+
+  IconData _mapIcon(String name) {
+    switch (name) {
+      case 'menu_book':
+        return Icons.menu_book_rounded;
+      case 'rocket_launch':
+        return Icons.rocket_launch_rounded;
+      case 'blur_on':
+        return Icons.blur_on_rounded;
+      case 'search':
+        return Icons.search_rounded;
+      case 'history_edu':
+        return Icons.history_edu_rounded;
+      default:
+        return Icons.groups_rounded;
+    }
+  }
+
+  Color _mapColor(String hex) {
+    try {
+      final cleanHex = hex.replaceAll('#', '');
+      return Color(int.parse('FF$cleanHex', radix: 16));
+    } catch (_) {
+      return Colors.brown;
+    }
+  }
+
+  /// Creates a new reading club in Supabase and appends it locally.
+  Future<void> addClub(ReadingClub club) async {
+    if (!_isSupabaseInitialized) return;
+    try {
+      final user = AuthService.instance.currentUser;
+      
+      // Map IconData back to string name
+      String iconName = 'groups';
+      if (club.icon == Icons.menu_book_rounded) {
+        iconName = 'menu_book';
+      } else if (club.icon == Icons.rocket_launch_rounded) {
+        iconName = 'rocket_launch';
+      } else if (club.icon == Icons.blur_on_rounded) {
+        iconName = 'blur_on';
+      } else if (club.icon == Icons.search_rounded) {
+        iconName = 'search';
+      } else if (club.icon == Icons.history_edu_rounded) {
+        iconName = 'history_edu';
+      }
+
+      // Convert Color to Hex string (e.g. #FFFFFF)
+      final iconColorHex = '#${club.iconColor.value.toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}';
+      final bgColorHex = '#${club.bgColor.value.toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}';
+
+      await SupabaseService.client.from('clubs').insert({
+        'id': club.id,
+        'name': club.name,
+        'description': club.description,
+        'icon': iconName,
+        'icon_color': iconColorHex,
+        'bg_color': bgColorHex,
+        'moderator_id': user?.id,
+        'rules': club.rules,
+      });
+
+      _clubs.add(club);
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error addClub: $e');
+    }
+  }
+
+  /// Hook for when auth state transitions (resets provider cache and reloads).
+  void onAuthChanged() {
+    _joinedClubs.clear();
+    _chats.clear();
+    _clubMembersMap.clear();
+    _profileNames.clear();
+    unsubscribeFromChat();
+    loadClubs();
   }
 }

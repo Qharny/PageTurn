@@ -1,7 +1,11 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../theme.dart';
 import 'reading_club_provider.dart';
+import '../../routes.dart';
+import '../library/library_provider.dart';
+import '../../core/auth/session_provider.dart';
+import '../common/widgets/book_cover.dart';
+import '../../data/models/book_model.dart';
 
 class ReadingClubDetailScreen extends StatefulWidget {
   final ReadingClub club;
@@ -26,22 +30,28 @@ class _ReadingClubDetailScreenState extends State<ReadingClubDetailScreen>
   static const _chocolateBrown = Color(0xFF5C3826);
   static const _mutedText = Color(0xFF7A6B63);
 
-  final List<Map<String, String>> _mockMembers = [
-    {'name': 'Sarah Jenkins', 'role': 'Moderator'},
-    {'name': 'Marcus Vance', 'role': 'Gold Reader'},
-    {'name': 'Amina Osei', 'role': 'Classics Lover'},
-    {'name': 'Kofi Mensah', 'role': 'Speed Reader'},
-    {'name': 'Elena Rostova', 'role': 'Historian'},
-  ];
+
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(_handleTabChange);
+    ReadingClubProvider.instance.subscribeToChat(widget.club.id).then((_) {
+      _scrollToBottom();
+    });
+    ReadingClubProvider.instance.loadMembers(widget.club.id);
+  }
+
+  void _handleTabChange() {
+    if (_tabController.index == 1) {
+      _scrollToBottom();
+    }
   }
 
   @override
   void dispose() {
+    ReadingClubProvider.instance.unsubscribeFromChat();
     _tabController.dispose();
     _messageController.dispose();
     _scrollController.dispose();
@@ -65,25 +75,8 @@ class _ReadingClubDetailScreenState extends State<ReadingClubDetailScreen>
     if (text.isEmpty) return;
 
     _messageController.clear();
-    ReadingClubProvider.instance.addMessage(widget.club.id, 'Me', text, isMe: true);
+    ReadingClubProvider.instance.addMessage(widget.club.id, text);
     _scrollToBottom();
-
-    // Schedule a mock automatic reply after 1.5 seconds
-    Timer(const Duration(milliseconds: 1500), () {
-      if (mounted) {
-        final mockReplies = [
-          "That's a really interesting point! 💡",
-          "I totally agree. I noticed that too in chapter 3.",
-          "Welcome to the chat! Glad to have your perspective.",
-          "I'm still on chapter 1, but I can't wait to catch up!",
-          "Great observation! Let's keep discussing."
-        ];
-        final replyText = mockReplies[DateTime.now().second % mockReplies.length];
-        final randomSender = _mockMembers[DateTime.now().millisecond % _mockMembers.length]['name']!;
-        ReadingClubProvider.instance.addMessage(widget.club.id, randomSender, replyText, isMe: false);
-        _scrollToBottom();
-      }
-    });
   }
 
   String _formatMemberCount(int count) {
@@ -149,14 +142,20 @@ class _ReadingClubDetailScreenState extends State<ReadingClubDetailScreen>
               const Spacer(),
               ElevatedButton(
                 onPressed: () {
-                  ReadingClubProvider.instance.toggleJoin(club.id);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        isJoined ? "Left ${club.name}" : "Joined ${club.name}! 🎉",
-                      ),
-                      behavior: SnackBarBehavior.floating,
-                    ),
+                  SessionProvider.instance.requireAuth(
+                    context,
+                    pendingAction: () {
+                      ReadingClubProvider.instance.toggleJoin(club.id);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            isJoined ? "Left ${club.name}" : "Joined ${club.name}! 🎉",
+                          ),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    },
+                    reason: 'Sign in to join reading clubs.',
                   );
                 },
                 style: ElevatedButton.styleFrom(
@@ -325,35 +324,48 @@ class _ReadingClubDetailScreenState extends State<ReadingClubDetailScreen>
             style: TextStyle(fontFamily: 'Literata', fontSize: 18, fontWeight: FontWeight.bold, color: _darkBrown),
           ),
           const SizedBox(height: 12),
-          SizedBox(
-            height: 80,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: _mockMembers.length,
-              itemBuilder: (context, index) {
-                final member = _mockMembers[index];
-                return Padding(
-                  padding: const EdgeInsets.only(right: 16.0),
-                  child: Column(
-                    children: [
-                      CircleAvatar(
-                        backgroundColor: AppTheme.primary.withValues(alpha: 0.15),
-                        radius: 24,
-                        child: Text(
-                          member['name']!.substring(0, 1),
-                          style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primary),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        member['name']!.split(' ')[0],
-                        style: const TextStyle(fontFamily: 'Inter', fontSize: 11, fontWeight: FontWeight.w600, color: _chocolateBrown),
-                      ),
-                    ],
-                  ),
+          ListenableBuilder(
+            listenable: ReadingClubProvider.instance,
+            builder: (context, _) {
+              final members = ReadingClubProvider.instance.getMembers(club.id);
+              if (members.isEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8.0),
+                  child: Text('No other members have joined yet.',
+                    style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: _mutedText)),
                 );
-              },
-            ),
+              }
+              return SizedBox(
+                height: 80,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: members.length,
+                  itemBuilder: (context, index) {
+                    final member = members[index];
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 16.0),
+                      child: Column(
+                        children: [
+                          CircleAvatar(
+                            backgroundColor: AppTheme.primary.withValues(alpha: 0.15),
+                            radius: 24,
+                            child: Text(
+                              member.name.substring(0, 1).toUpperCase(),
+                              style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primary),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            member.name.split(' ')[0],
+                            style: const TextStyle(fontFamily: 'Inter', fontSize: 11, fontWeight: FontWeight.w600, color: _chocolateBrown),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -366,6 +378,13 @@ class _ReadingClubDetailScreenState extends State<ReadingClubDetailScreen>
     }
 
     final messages = ReadingClubProvider.instance.getMessages(club.id);
+
+    // Auto-scroll to the bottom when messages list size changes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+      }
+    });
 
     return Column(
       children: [
@@ -433,12 +452,18 @@ class _ReadingClubDetailScreenState extends State<ReadingClubDetailScreen>
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: () {
-                ReadingClubProvider.instance.toggleJoin(club.id);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text("Joined ${club.name}! 🎉"),
-                    behavior: SnackBarBehavior.floating,
-                  ),
+                SessionProvider.instance.requireAuth(
+                  context,
+                  pendingAction: () {
+                    ReadingClubProvider.instance.toggleJoin(club.id);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text("Joined ${club.name}! 🎉"),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  },
+                  reason: 'Sign in to join reading clubs.',
                 );
               },
               style: ElevatedButton.styleFrom(
@@ -507,14 +532,24 @@ class _ReadingClubDetailScreenState extends State<ReadingClubDetailScreen>
                 ),
               ],
             ),
-            child: Text(
-              message.text,
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 14,
-                color: textColor,
-                height: 1.4,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (message.sharedBook != null) ...[
+                  _buildSharedBookCard(message.sharedBook!),
+                  const SizedBox(height: 8),
+                ],
+                Text(
+                  message.text,
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 14,
+                    color: textColor,
+                    height: 1.4,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -531,6 +566,11 @@ class _ReadingClubDetailScreenState extends State<ReadingClubDetailScreen>
       ),
       child: Row(
         children: [
+          IconButton(
+            onPressed: _showShareBookDialog,
+            icon: const Icon(Icons.add_link_rounded, color: AppTheme.primary),
+            tooltip: 'Share a book',
+          ),
           Expanded(
             child: TextField(
               controller: _messageController,
@@ -548,6 +588,178 @@ class _ReadingClubDetailScreenState extends State<ReadingClubDetailScreen>
             icon: const Icon(Icons.send_rounded, color: AppTheme.primary),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showShareBookDialog() {
+    final books = LibraryProvider.instance.books;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFFF9F4EE),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Share a Book',
+                style: TextStyle(
+                  fontFamily: 'Literata',
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF5C3826),
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Select a book from your library to share with the group.',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 12,
+                  color: Color(0xFF7A6B63),
+                ),
+              ),
+              const SizedBox(height: 16),
+              if (books.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: Center(
+                    child: Text(
+                      'No books in your library yet. Add some from Explore!',
+                      style: TextStyle(fontFamily: 'Inter', color: Color(0xFF7A6B63)),
+                    ),
+                  ),
+                )
+              else
+                Flexible(
+                  child: ListView.builder(
+                    itemCount: books.length,
+                    itemBuilder: (context, index) {
+                      final book = books[index];
+                      return ListTile(
+                        leading: SizedBox(
+                          width: 32,
+                          height: 48,
+                          child: BookCover(
+                            coverAsset: book.coverAsset,
+                            coverUrl: book.coverUrl,
+                            title: book.title,
+                          ),
+                        ),
+                        title: Text(
+                          book.title,
+                          style: const TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                        subtitle: Text(
+                          book.author,
+                          style: const TextStyle(fontFamily: 'Inter', fontSize: 11),
+                        ),
+                        onTap: () {
+                          Navigator.pop(context);
+                          _shareBook(book);
+                        },
+                      );
+                    },
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _shareBook(Book book) {
+    ReadingClubProvider.instance.addMessage(
+      widget.club.id,
+      'Recommended: "${book.title}" by ${book.author}',
+      sharedBook: book,
+    );
+    _scrollToBottom();
+  }
+
+  Widget _buildSharedBookCard(Book book) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.of(context).pushNamed(AppRoutes.details, arguments: book);
+      },
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFAF6EE),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFEFE8DD), width: 1),
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 48,
+              height: 72,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: BookCover(
+                  coverAsset: book.coverAsset,
+                  coverUrl: book.coverUrl,
+                  title: book.title,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    book.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontFamily: 'Literata',
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF5C3826),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    book.author,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 11,
+                      color: Color(0xFF7A6B63),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      const Icon(Icons.star_rounded, color: Colors.orange, size: 12),
+                      const SizedBox(width: 2),
+                      Text(
+                        book.rating.toStringAsFixed(1),
+                        style: const TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF5C3826),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

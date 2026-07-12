@@ -6,6 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../routes.dart';
 import '../../theme.dart';
+import '../../services/auth_service.dart';
+import '../../presentation/profile/profile_provider.dart';
 
 /// Animated splash screen for PageTurn.
 ///
@@ -65,6 +67,16 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _goToHome() async {
+    if (!mounted) return;
+
+    // 1. Ensure every user — even first-timers — has a Supabase session.
+    //    This creates an anonymous session if none exists, giving each user
+    //    a real UUID with zero friction.
+    await AuthService.instance.ensureSession();
+
+    // 2. Pre-load profile data in the background (won't block routing).
+    ProfileProvider.instance.loadProfile();
+
     if (!mounted) return;
     final prefs = await SharedPreferences.getInstance();
     final onboardingCompleted = prefs.getBool('onboarding_completed') ?? false;

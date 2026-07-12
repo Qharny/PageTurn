@@ -47,7 +47,7 @@ void main() {
     // Future.delayed calls are interleaved so pending real I/O (Hive) gets
     // a chance to complete between pumps.
     await tester.pump(const Duration(milliseconds: 3600));
-    for (int i = 0; i < 50 && find.text('PageTurn').evaluate().isEmpty; i++) {
+    for (int i = 0; i < 50 && find.text('BOOK OF THE DAY').evaluate().isEmpty; i++) {
       await tester.pump(const Duration(milliseconds: 100));
       await Future<void>.delayed(const Duration(milliseconds: 50));
     }

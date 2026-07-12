@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../theme.dart';
 import 'reading_club_provider.dart';
 import 'club_detail_screen.dart';
+import '../../core/auth/session_provider.dart';
 
 class ReadingClubsScreen extends StatefulWidget {
   const ReadingClubsScreen({super.key});
@@ -432,12 +433,18 @@ class _ReadingClubsScreenState extends State<ReadingClubsScreen> {
 
     return ElevatedButton(
       onPressed: () {
-        ReadingClubProvider.instance.toggleJoin(club.id);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Joined ${club.name}! 🎉"),
-            behavior: SnackBarBehavior.floating,
-          ),
+        SessionProvider.instance.requireAuth(
+          context,
+          pendingAction: () {
+            ReadingClubProvider.instance.toggleJoin(club.id);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text("Joined ${club.name}! 🎉"),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          },
+          reason: 'Sign in to join reading clubs.',
         );
       },
       style: ElevatedButton.styleFrom(

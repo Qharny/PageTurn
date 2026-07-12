@@ -16,14 +16,24 @@ import 'data/models/book_model.dart';
 import 'data/repositories/repository_locator.dart';
 import 'core/errors/app_exception.dart';
 import 'presentation/common/widgets/book_cover.dart';
+import 'core/auth/session_provider.dart';
+import 'presentation/profile/profile_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Supabase.initialize(
     url: SupabaseConfig.url,
-    anonKey: SupabaseConfig.anonKey,
+    publishableKey: SupabaseConfig.publishableKey,
   );
   await RepositoryLocator.init();
+
+  // Boot the SessionProvider singleton so it immediately subscribes to
+  // Supabase auth state changes.  On every sign-in / sign-out event we
+  // ask ProfileProvider to reload (or reset) the user's profile data.
+  SessionProvider.instance.addListener(() {
+    ProfileProvider.instance.onAuthChanged();
+  });
+
   runApp(const MyApp());
 }
 
@@ -1009,3 +1019,8 @@ class _AddBottomSheetContentState extends State<_AddBottomSheetContent> with Sin
     );
   }
 }
+
+
+
+
+
