@@ -264,138 +264,92 @@ class _ReadingClubsScreenState extends State<ReadingClubsScreen> {
         );
       },
       child: Container(
-        margin: const EdgeInsets.only(bottom: 14),
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFF2ECE4), width: 1.2),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFF0EAE0), width: 1),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Slim accent stripe in the club's colour
-            Container(
-              height: 4,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    club.iconColor.withValues(alpha: 0.85),
-                    club.iconColor.withValues(alpha: 0.35),
-                  ],
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: club.bgColor,
+                    borderRadius: BorderRadius.circular(13),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(club.icon, color: club.iconColor, size: 22),
                 ),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        width: 52,
-                        height: 52,
-                        decoration: BoxDecoration(
-                          color: club.bgColor,
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        alignment: Alignment.center,
-                        child: Icon(club.icon, color: club.iconColor, size: 26),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              club.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: _ink,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                Container(
-                                  width: 7,
-                                  height: 7,
-                                  decoration: const BoxDecoration(
-                                    color: AppTheme.tertiary,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                const Text(
-                                  'Active now',
-                                  style: TextStyle(
-                                    fontFamily: 'Inter',
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFF5E7A66),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      _buildJoinButton(context, club, isJoined),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  Text(
-                    club.description,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 13,
-                      color: _mutedText,
-                      height: 1.45,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      _buildAvatarStack(club),
-                      const SizedBox(width: 10),
                       Text(
-                        _formatMemberCount(club.memberCount),
+                        club.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 15.5,
+                          fontWeight: FontWeight.bold,
+                          color: _ink,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        'Led by ${club.moderator}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: _chocolateBrown,
+                          color: _mutedText,
                         ),
-                      ),
-                      const Spacer(),
-                      Container(
-                        width: 30,
-                        height: 30,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF7F1E8),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.arrow_forward_rounded,
-                            color: _chocolateBrown, size: 16),
                       ),
                     ],
                   ),
-                ],
+                ),
+                const SizedBox(width: 8),
+                _buildJoinButton(context, club, isJoined),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              club.description,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 13,
+                color: _mutedText,
+                height: 1.45,
               ),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                _buildAvatarStack(club),
+                const SizedBox(width: 10),
+                Text(
+                  _formatMemberCount(club.memberCount),
+                  style: const TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: _chocolateBrown,
+                  ),
+                ),
+                const Spacer(),
+                const Icon(Icons.chevron_right_rounded, color: _mutedText, size: 20),
+              ],
             ),
           ],
         ),
@@ -406,11 +360,10 @@ class _ReadingClubsScreenState extends State<ReadingClubsScreen> {
   Widget _buildJoinButton(BuildContext context, ReadingClub club, bool isJoined) {
     if (isJoined) {
       return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
         decoration: BoxDecoration(
-          color: AppTheme.tertiary.withValues(alpha: 0.15),
+          color: AppTheme.tertiary.withValues(alpha: 0.14),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppTheme.tertiary.withValues(alpha: 0.3)),
         ),
         child: const Row(
           mainAxisSize: MainAxisSize.min,

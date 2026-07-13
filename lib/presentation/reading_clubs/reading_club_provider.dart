@@ -110,7 +110,7 @@ class ReadingClubProvider extends ChangeNotifier {
       // 1. Fetch clubs
       final clubsRes = await SupabaseService.client
           .from('clubs')
-          .select('*, profiles(name)');
+          .select('*, profiles!clubs_moderator_id_fkey(name)');
 
       _clubs.clear();
       for (final item in (clubsRes as List)) {
@@ -180,7 +180,7 @@ class ReadingClubProvider extends ChangeNotifier {
     try {
       final res = await SupabaseService.client
           .from('club_members')
-          .select('*, profiles(name)')
+          .select('*, profiles!club_members_profile_id_fkey(name)')
           .eq('club_id', clubId);
 
       final List<ReadingClubMember> list = [];
@@ -212,7 +212,7 @@ class ReadingClubProvider extends ChangeNotifier {
     try {
       final res = await SupabaseService.client
           .from('club_messages')
-          .select('*, profiles(name)')
+          .select('*, profiles!club_messages_sender_id_fkey(name)')
           .eq('club_id', clubId)
           .order('created_at', ascending: true);
 
@@ -310,10 +310,14 @@ class ReadingClubProvider extends ChangeNotifier {
   // ── Actions ────────────────────────────────────────────────
 
   /// Joins or leaves a club in Supabase, updating the membership table.
+  ///
+  /// Requires a real (non-anonymous) session — every launch gets a guest
+  /// anonymous Supabase session via `AuthService.ensureSession`, so checking
+  /// `currentUser != null` alone would let guests join clubs and chat.
   Future<void> toggleJoin(String clubId) async {
     if (!_isSupabaseInitialized) return;
-    final user = AuthService.instance.currentUser;
-    if (user == null) return;
+    if (!AuthService.instance.isAuthenticated) return;
+    final user = AuthService.instance.currentUser!;
 
     final alreadyJoined = _joinedClubs.contains(clubId);
     try {
@@ -348,10 +352,11 @@ class ReadingClubProvider extends ChangeNotifier {
   }
 
   /// Sends a message into the chat, optionally with a shared book.
+  /// Requires a real (non-anonymous) session — see [toggleJoin].
   Future<void> addMessage(String clubId, String text, {Book? sharedBook}) async {
     if (!_isSupabaseInitialized) return;
-    final user = AuthService.instance.currentUser;
-    if (user == null) return;
+    if (!AuthService.instance.isAuthenticated) return;
+    final user = AuthService.instance.currentUser!;
 
     try {
       final res = await SupabaseService.client
@@ -458,8 +463,8 @@ class ReadingClubProvider extends ChangeNotifier {
       }
 
       // Convert Color to Hex string (e.g. #FFFFFF)
-      final iconColorHex = '#${club.iconColor.value.toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}';
-      final bgColorHex = '#${club.bgColor.value.toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}';
+      final iconColorHex = '#${club.iconColor.toARGB32().toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}';
+      final bgColorHex = '#${club.bgColor.toARGB32().toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}';
 
       await SupabaseService.client.from('clubs').insert({
         'id': club.id,

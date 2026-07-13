@@ -32,6 +32,14 @@ class _ReadingClubDetailScreenState extends State<ReadingClubDetailScreen>
 
 
 
+  static const List<Color> _avatarPalette = [
+    Color(0xFFD97706),
+    Color(0xFF2D6A4F),
+    Color(0xFF6A1B9A),
+    Color(0xFF1565C0),
+    Color(0xFFAD1457),
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -44,9 +52,15 @@ class _ReadingClubDetailScreenState extends State<ReadingClubDetailScreen>
   }
 
   void _handleTabChange() {
+    setState(() {});
     if (_tabController.index == 1) {
       _scrollToBottom();
     }
+  }
+
+  Color _avatarColorFor(String name) {
+    if (name.isEmpty) return _avatarPalette.first;
+    return _avatarPalette[name.hashCode.abs() % _avatarPalette.length];
   }
 
   @override
@@ -89,9 +103,10 @@ class _ReadingClubDetailScreenState extends State<ReadingClubDetailScreen>
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: ReadingClubProvider.instance,
+      listenable: Listenable.merge([ReadingClubProvider.instance, SessionProvider.instance]),
       builder: (context, child) {
         final isJoined = ReadingClubProvider.instance.isJoined(widget.club.id);
+        final isAuthenticated = SessionProvider.instance.isAuthenticated;
         final currentClub = ReadingClubProvider.instance.clubs.firstWhere((c) => c.id == widget.club.id);
 
         return Scaffold(
@@ -106,7 +121,7 @@ class _ReadingClubDetailScreenState extends State<ReadingClubDetailScreen>
                     controller: _tabController,
                     children: [
                       _buildAboutTab(currentClub),
-                      _buildChatTab(currentClub, isJoined),
+                      _buildChatTab(currentClub, isJoined, isAuthenticated),
                     ],
                   ),
                 ),
@@ -224,22 +239,53 @@ class _ReadingClubDetailScreenState extends State<ReadingClubDetailScreen>
 
   Widget _buildTabBar() {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFFF0E8DC), width: 1.5)),
+      margin: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0EAE0),
+        borderRadius: BorderRadius.circular(14),
       ),
-      child: TabBar(
-        controller: _tabController,
-        labelColor: _chocolateBrown,
-        unselectedLabelColor: _mutedText,
-        indicatorColor: AppTheme.primary,
-        indicatorWeight: 3,
-        labelStyle: const TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.bold, fontSize: 14),
-        unselectedLabelStyle: const TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w600, fontSize: 14),
-        tabs: const [
-          Tab(text: 'About'),
-          Tab(text: 'Group Chat'),
+      child: Row(
+        children: [
+          _buildTabPill('About', 0),
+          _buildTabPill('Group Chat', 1),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTabPill(String label, int index) {
+    final isSelected = _tabController.index == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => _tabController.animateTo(index),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: isSelected ? _chocolateBrown : _mutedText,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -372,7 +418,10 @@ class _ReadingClubDetailScreenState extends State<ReadingClubDetailScreen>
     );
   }
 
-  Widget _buildChatTab(ReadingClub club, bool isJoined) {
+  Widget _buildChatTab(ReadingClub club, bool isJoined, bool isAuthenticated) {
+    if (!isAuthenticated) {
+      return _buildSignInRequiredState(club);
+    }
     if (!isJoined) {
       return _buildLockedChatState(club);
     }
@@ -402,12 +451,83 @@ class _ReadingClubDetailScreenState extends State<ReadingClubDetailScreen>
                   itemCount: messages.length,
                   itemBuilder: (context, index) {
                     final message = messages[index];
-                    return _buildChatBubble(message);
+                    final prev = index > 0 ? messages[index - 1] : null;
+                    final next = index < messages.length - 1 ? messages[index + 1] : null;
+                    final isFirstInGroup = prev == null || prev.sender != message.sender || prev.isMe != message.isMe;
+                    final isLastInGroup = next == null || next.sender != message.sender || next.isMe != message.isMe;
+                    return _buildChatBubble(
+                      message,
+                      isFirstInGroup: isFirstInGroup,
+                      isLastInGroup: isLastInGroup,
+                    );
                   },
                 ),
         ),
         _buildChatInput(),
       ],
+    );
+  }
+
+  Widget _buildSignInRequiredState(ReadingClub club) {
+    return Padding(
+      padding: const EdgeInsets.all(32.0),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 76,
+              height: 76,
+              decoration: const BoxDecoration(
+                color: Color(0xFFFFF1E6),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.lock_person_rounded, color: AppTheme.primary, size: 32),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Sign In to Chat',
+              style: TextStyle(
+                fontFamily: 'Literata',
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: _darkBrown,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'You have to sign in first to view and join the conversation in ${club.name}.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 14,
+                color: _mutedText,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () {
+                SessionProvider.instance.requireAuth(
+                  context,
+                  pendingAction: () {},
+                  reason: 'Sign in to chat with the group.',
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF8C481A),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+              ),
+              child: const Text(
+                'Sign In',
+                style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -419,14 +539,13 @@ class _ReadingClubDetailScreenState extends State<ReadingClubDetailScreen>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFF6F0),
+              width: 76,
+              height: 76,
+              decoration: const BoxDecoration(
+                color: Color(0xFFFFF1E6),
                 shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFFFFEBE0), width: 2),
               ),
-              child: const Icon(Icons.lock_rounded, color: AppTheme.primary, size: 36),
+              child: const Icon(Icons.lock_rounded, color: AppTheme.primary, size: 32),
             ),
             const SizedBox(height: 24),
             const Text(
@@ -483,72 +602,117 @@ class _ReadingClubDetailScreenState extends State<ReadingClubDetailScreen>
     );
   }
 
-  Widget _buildChatBubble(ReadingClubMessage message) {
-    final align = message.isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start;
-    final bubbleColor = message.isMe ? const Color(0xFF8C481A) : Colors.white;
-    final textColor = message.isMe ? Colors.white : _darkBrown;
-    final borderRadius = message.isMe
-        ? const BorderRadius.only(
-            topLeft: Radius.circular(14),
-            topRight: Radius.circular(14),
-            bottomLeft: Radius.circular(14),
+  /// Renders one bubble, grouping consecutive messages from the same sender
+  /// like iMessage: the sender name only appears above the first bubble in a
+  /// run, the avatar only appears next to the last (bottom-anchored) bubble,
+  /// and the "tail" corner is only rounded-off on that last bubble.
+  Widget _buildChatBubble(
+    ReadingClubMessage message, {
+    required bool isFirstInGroup,
+    required bool isLastInGroup,
+  }) {
+    final isMe = message.isMe;
+    final bubbleColor = isMe ? const Color(0xFF8C481A) : const Color(0xFFF3ECE1);
+    final textColor = isMe ? Colors.white : _darkBrown;
+    const roundCorner = Radius.circular(18);
+    const tailCorner = Radius.circular(4);
+    final borderRadius = isMe
+        ? BorderRadius.only(
+            topLeft: roundCorner,
+            topRight: roundCorner,
+            bottomLeft: roundCorner,
+            bottomRight: isLastInGroup ? tailCorner : roundCorner,
           )
-        : const BorderRadius.only(
-            topLeft: Radius.circular(14),
-            topRight: Radius.circular(14),
-            bottomRight: Radius.circular(14),
+        : BorderRadius.only(
+            topLeft: roundCorner,
+            topRight: roundCorner,
+            bottomRight: roundCorner,
+            bottomLeft: isLastInGroup ? tailCorner : roundCorner,
           );
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+    final bubble = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.68),
+      decoration: BoxDecoration(
+        color: bubbleColor,
+        borderRadius: borderRadius,
+      ),
       child: Column(
-        crossAxisAlignment: align,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          if (!message.isMe)
-            Padding(
-              padding: const EdgeInsets.only(left: 4, bottom: 4),
-              child: Text(
-                message.sender,
-                style: const TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: _mutedText,
-                ),
-              ),
+          if (message.sharedBook != null) ...[
+            _buildSharedBookCard(message.sharedBook!),
+            const SizedBox(height: 8),
+          ],
+          Text(
+            message.text,
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 14,
+              color: textColor,
+              height: 1.4,
             ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
-            decoration: BoxDecoration(
-              color: bubbleColor,
-              borderRadius: borderRadius,
-              border: message.isMe ? null : Border.all(color: const Color(0xFFF2ECE4), width: 1.2),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.02),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
+          ),
+        ],
+      ),
+    );
+
+    if (isMe) {
+      return Padding(
+        padding: EdgeInsets.only(bottom: isLastInGroup ? 10 : 3),
+        child: Align(alignment: Alignment.centerRight, child: bubble),
+      );
+    }
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: isLastInGroup ? 14 : 3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 26,
+            child: isLastInGroup
+                ? Container(
+                    width: 26,
+                    height: 26,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: _avatarColorFor(message.sender).withValues(alpha: 0.16),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      message.sender.isNotEmpty ? message.sender[0].toUpperCase() : '?',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: _avatarColorFor(message.sender),
+                      ),
+                    ),
+                  )
+                : null,
+          ),
+          const SizedBox(width: 8),
+          Flexible(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
               children: [
-                if (message.sharedBook != null) ...[
-                  _buildSharedBookCard(message.sharedBook!),
-                  const SizedBox(height: 8),
-                ],
-                Text(
-                  message.text,
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 14,
-                    color: textColor,
-                    height: 1.4,
+                if (isFirstInGroup)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 2, bottom: 3),
+                    child: Text(
+                      message.sender,
+                      style: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: _mutedText,
+                      ),
+                    ),
                   ),
-                ),
+                bubble,
               ],
             ),
           ),
@@ -559,33 +723,61 @@ class _ReadingClubDetailScreenState extends State<ReadingClubDetailScreen>
 
   Widget _buildChatInput() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Color(0xFFF0E8DC), width: 1.5)),
-      ),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+      color: _bg,
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          IconButton(
-            onPressed: _showShareBookDialog,
-            icon: const Icon(Icons.add_link_rounded, color: AppTheme.primary),
-            tooltip: 'Share a book',
-          ),
-          Expanded(
-            child: TextField(
-              controller: _messageController,
-              decoration: const InputDecoration(
-                hintText: 'Type a message...',
-                hintStyle: TextStyle(fontFamily: 'Inter', color: _mutedText),
-                border: InputBorder.none,
+          GestureDetector(
+            onTap: _showShareBookDialog,
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
               ),
-              style: const TextStyle(fontFamily: 'Inter', color: _darkBrown),
-              onSubmitted: (_) => _sendMessage(),
+              child: const Icon(Icons.add_link_rounded, color: AppTheme.primary, size: 20),
             ),
           ),
-          IconButton(
-            onPressed: _sendMessage,
-            icon: const Icon(Icons.send_rounded, color: AppTheme.primary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Container(
+              constraints: const BoxConstraints(minHeight: 40),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(22),
+              ),
+              alignment: Alignment.center,
+              child: TextField(
+                controller: _messageController,
+                minLines: 1,
+                maxLines: 4,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(
+                  hintText: 'Message the group...',
+                  hintStyle: TextStyle(fontFamily: 'Inter', color: _mutedText, fontSize: 14),
+                  border: InputBorder.none,
+                  isCollapsed: true,
+                ),
+                style: const TextStyle(fontFamily: 'Inter', color: _darkBrown, fontSize: 14),
+                onSubmitted: (_) => _sendMessage(),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: _sendMessage,
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: const BoxDecoration(
+                color: AppTheme.primary,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.arrow_upward_rounded, color: Colors.white, size: 20),
+            ),
           ),
         ],
       ),

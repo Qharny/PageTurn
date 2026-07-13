@@ -8,6 +8,7 @@ import '../../data/repositories/repository_locator.dart';
 import '../../core/errors/app_exception.dart';
 import '../common/widgets/book_cover.dart';
 import '../library/library_provider.dart';
+import '../profile/profile_provider.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -196,16 +197,24 @@ class _HomeScreenState extends State<HomeScreen> {
                 constraints: const BoxConstraints(),
               ),
               const SizedBox(width: 16),
-              Container(
-                width: 36,
-                height: 36,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  image: DecorationImage(
-                    image: AssetImage('assets/images/profile_avatar.png'),
-                    fit: BoxFit.cover,
-                  ),
-                ),
+              ListenableBuilder(
+                listenable: ProfileProvider.instance,
+                builder: (context, _) {
+                  final avatarUrl = ProfileProvider.instance.avatarUrl;
+                  return Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      image: DecorationImage(
+                        image: avatarUrl != null
+                            ? NetworkImage(avatarUrl) as ImageProvider
+                            : const AssetImage('assets/images/profile_avatar.png'),
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  );
+                },
               ),
             ],
           ),

@@ -46,7 +46,7 @@ void main() {
     // and pumpAndSettle never returns while one is on screen. Real
     // Future.delayed calls are interleaved so pending real I/O (Hive) gets
     // a chance to complete between pumps.
-    await tester.pump(const Duration(milliseconds: 3600));
+    await tester.pump(const Duration(milliseconds: 1200));
     for (int i = 0; i < 50 && find.text('BOOK OF THE DAY').evaluate().isEmpty; i++) {
       await tester.pump(const Duration(milliseconds: 100));
       await Future<void>.delayed(const Duration(milliseconds: 50));
@@ -74,7 +74,7 @@ void main() {
     await tester.pumpWidget(const MyApp());
 
     // Wait for splash screen to complete and transition to onboarding
-    await tester.pump(const Duration(milliseconds: 3600));
+    await tester.pump(const Duration(milliseconds: 1200));
     await tester.pumpAndSettle();
 
     // Verify we are on onboarding page 1

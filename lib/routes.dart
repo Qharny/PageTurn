@@ -16,6 +16,7 @@ import 'presentation/home/continue_reading_screen.dart';
 import 'presentation/explore/trending_leaderboard_screen.dart';
 import 'presentation/book_detail/reviews_screen.dart';
 import 'presentation/search/search_screen.dart';
+import 'presentation/explore/quote_studio/quote_studio_screen.dart';
 
 class AppRoutes {
   static const String splash = '/splash';
@@ -74,6 +75,9 @@ class AppRoutes {
         return _buildPageRoute(ReviewsScreen(book: book), settings);
       case search:
         return _buildPageRoute(const SearchScreen(), settings);
+      case QuoteStudioArgs.routeName:
+        final args = settings.arguments as QuoteStudioArgs;
+        return _buildPageRoute(QuoteStudioScreen(args: args), settings);
       default:
         return _buildPageRoute(
           const Scaffold(

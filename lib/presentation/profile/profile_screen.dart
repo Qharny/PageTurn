@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
 import '../../theme.dart';
 import '../../routes.dart';
 import 'profile_provider.dart';
+import 'package:file_picker/file_picker.dart';
 import '../reading_clubs/reading_club_provider.dart';
 import '../../data/models/book_model.dart';
 import '../common/widgets/book_cover.dart';
@@ -349,31 +351,72 @@ class _ProfileScreenState extends State<ProfileScreen>
           Positioned(
             top: bannerH - avatarR,
             left: 22,
-            child: Container(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: _bg, width: 3.5),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.25),
-                    blurRadius: 16,
-                    offset: const Offset(0, 6),
+            child: ListenableBuilder(
+              listenable: ProfileProvider.instance,
+              builder: (context, _) {
+                final provider = ProfileProvider.instance;
+                final avatarUrl = provider.avatarUrl;
+
+                return GestureDetector(
+                  onTap: provider.isGuest ? null : () => _pickAndUploadAvatar(context),
+                  child: Stack(
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: _bg, width: 3.5),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.25),
+                              blurRadius: 16,
+                              offset: const Offset(0, 6),
+                            ),
+                          ],
+                        ),
+                        child: CircleAvatar(
+                          radius: avatarR,
+                          backgroundColor: const Color(0xFF2C3E50),
+                          backgroundImage: avatarUrl != null
+                              ? NetworkImage(avatarUrl)
+                              : null,
+                          child: avatarUrl == null
+                              ? ClipOval(
+                                  child: Image.asset(
+                                    'assets/images/profile_avatar.png',
+                                    width: avatarR * 2,
+                                    height: avatarR * 2,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, _, _) => const Icon(
+                                      Icons.person_rounded,
+                                      size: 44,
+                                      color: Colors.white70,
+                                    ),
+                                  ),
+                                )
+                              : null,
+                        ),
+                      ),
+                      if (!provider.isGuest)
+                        Positioned(
+                          right: 0,
+                          bottom: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: const BoxDecoration(
+                              color: AppTheme.primary,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.camera_alt_rounded,
+                              size: 14,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
-                ],
-              ),
-              child: CircleAvatar(
-                radius: avatarR,
-                backgroundColor: const Color(0xFF2C3E50),
-                child: Image.asset(
-                  'assets/images/profile_avatar.png',
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => const Icon(
-                    Icons.person_rounded,
-                    size: 44,
-                    color: Colors.white70,
-                  ),
-                ),
-              ),
+                );
+              },
             ),
           ),
 
@@ -592,6 +635,62 @@ class _ProfileScreenState extends State<ProfileScreen>
         );
       },
     );
+  }
+
+  Future<void> _pickAndUploadAvatar(BuildContext context) async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+      );
+
+      if (result == null || result.files.isEmpty) return;
+
+      final file = result.files.first;
+      final filePath = file.path;
+      if (filePath == null) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to get image path.'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+        return;
+      }
+
+      final bytes = await File(filePath).readAsBytes();
+      final extension = file.extension ?? 'jpg';
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Uploading avatar... ⏳'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+
+      await ProfileProvider.instance.uploadAvatar(bytes, extension);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Avatar uploaded successfully! 🎉'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error uploading avatar: $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 
   Future<bool> _confirmSignOut() async {

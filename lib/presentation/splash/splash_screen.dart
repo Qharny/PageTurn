@@ -24,7 +24,7 @@ class SplashScreen extends StatefulWidget {
 class _SplashScreenState extends State<SplashScreen>
     with TickerProviderStateMixin {
   /// Total time the splash is shown before routing onward.
-  static const Duration _splashDuration = Duration(milliseconds: 3600);
+  static const Duration _splashDuration = Duration(milliseconds: 1200);
 
   late final AnimationController _progressController;
   late final AnimationController _contentController;

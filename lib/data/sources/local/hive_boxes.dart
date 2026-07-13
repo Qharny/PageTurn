@@ -11,4 +11,10 @@ class HiveBoxes {
   /// re-hit Gutendex/Google Books/LibriVox every time. Separate from
   /// [downloadedBooks], which represents the user's actual library.
   static const String apiCache = 'api_cache_box';
+
+  /// Reader annotations (bookmarks/highlights/notes), keyed by annotation
+  /// id. Guest-first like everything else here — no auth required to read
+  /// or write it; see `AnnotationRepositoryImpl`'s `// SYNC:` seam for where
+  /// a future Supabase sync would attach these to an account.
+  static const String annotations = 'annotations_box';
 }

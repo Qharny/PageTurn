@@ -8,6 +8,8 @@ import '../../routes.dart';
 import '../common/widgets/book_cover.dart';
 import '../reading_clubs/reading_club_provider.dart';
 import '../reading_clubs/club_detail_screen.dart';
+import '../../core/auth/session_provider.dart';
+import 'genre_books_screen.dart';
 
 class ExploreScreen extends StatefulWidget {
   const ExploreScreen({super.key});
@@ -416,15 +418,21 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         ),
                         ElevatedButton(
                           onPressed: () {
-                            ReadingClubProvider.instance.toggleJoin(club.id);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  isJoined ? "Left ${club.name}" : "Joined ${club.name}! 🎉",
-                                ),
-                                behavior: SnackBarBehavior.floating,
-                                duration: const Duration(seconds: 2),
-                              ),
+                            SessionProvider.instance.requireAuth(
+                              context,
+                              pendingAction: () {
+                                ReadingClubProvider.instance.toggleJoin(club.id);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      isJoined ? "Left ${club.name}" : "Joined ${club.name}! 🎉",
+                                    ),
+                                    behavior: SnackBarBehavior.floating,
+                                    duration: const Duration(seconds: 2),
+                                  ),
+                                );
+                              },
+                              reason: 'Sign in to join reading clubs.',
                             );
                           },
                           style: ElevatedButton.styleFrom(
@@ -476,210 +484,240 @@ class _ExploreScreenState extends State<ExploreScreen> {
           children: [
             Expanded(
               child: _buildGenreCard(
+                context,
                 title: 'Sci-Fi',
                 badgeText: 'TRENDING NOW',
                 imageAsset: 'assets/images/genre_scifi.png',
                 height: 220,
+                topic: 'science fiction',
+                accentColor: const Color(0xFF3B6FA0),
               ),
             ),
             const SizedBox(width: 16),
             Expanded(
               child: _buildGenreCard(
+                context,
                 title: 'Historical',
                 badgeText: 'CURATED',
                 imageAsset: 'assets/images/genre_historical.png',
                 height: 220,
+                topic: 'history',
+                accentColor: const Color(0xFFB08D3E),
               ),
             ),
           ],
         ),
         const SizedBox(height: 16),
         _buildWideGenreCard(
+          context,
           title: 'Mystery & Noir',
           subtitle: 'Discover the hidden secrets...',
           imageAsset: 'assets/images/genre_mystery.png',
           height: 150,
+          topic: 'mystery',
+          accentColor: const Color(0xFF5E3B6F),
         ),
       ],
     );
   }
 
-  Widget _buildGenreCard({
+  void _openGenre(BuildContext context, {required String title, required String topic, required Color accentColor}) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => GenreBooksScreen(title: title, topic: topic, accentColor: accentColor),
+      ),
+    );
+  }
+
+  Widget _buildGenreCard(
+    BuildContext context, {
     required String title,
     required String badgeText,
     required String imageAsset,
     required double height,
+    required String topic,
+    required Color accentColor,
   }) {
-    return Container(
-      height: height,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Image.asset(
-              imageAsset,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(color: Colors.blueGrey);
-              },
+    return GestureDetector(
+      onTap: () => _openGenre(context, title: title, topic: topic, accentColor: accentColor),
+      child: Container(
+        height: height,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
             ),
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withValues(alpha: 0.25),
-                    Colors.black.withValues(alpha: 0.65),
-                  ],
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Image.asset(
+                imageAsset,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(color: Colors.blueGrey);
+                },
+              ),
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.25),
+                      Colors.black.withValues(alpha: 0.65),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            Positioned(
-              top: 12,
-              left: 12,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    color: Colors.black.withValues(alpha: 0.35),
-                    child: Text(
-                      badgeText,
-                      style: const TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 8,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        letterSpacing: 0.5,
+              Positioned(
+                top: 12,
+                left: 12,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      color: Colors.black.withValues(alpha: 0.35),
+                      child: Text(
+                        badgeText,
+                        style: const TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 8,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          letterSpacing: 0.5,
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-            Positioned(
-              bottom: 16,
-              left: 16,
-              child: Text(
-                title,
-                style: const TextStyle(
-                  fontFamily: 'Literata',
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
+              Positioned(
+                bottom: 16,
+                left: 16,
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontFamily: 'Literata',
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildWideGenreCard({
+  Widget _buildWideGenreCard(
+    BuildContext context, {
     required String title,
     required String subtitle,
     required String imageAsset,
     required double height,
+    required String topic,
+    required Color accentColor,
   }) {
-    return Container(
-      height: height,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Image.asset(
-              imageAsset,
-              fit: BoxFit.cover,
-              alignment: Alignment.center,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(color: Colors.brown[300]);
-              },
+    return GestureDetector(
+      onTap: () => _openGenre(context, title: title, topic: topic, accentColor: accentColor),
+      child: Container(
+        height: height,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
             ),
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withValues(alpha: 0.2),
-                    Colors.black.withValues(alpha: 0.65),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Image.asset(
+                imageAsset,
+                fit: BoxFit.cover,
+                alignment: Alignment.center,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(color: Colors.brown[300]);
+                },
+              ),
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.2),
+                      Colors.black.withValues(alpha: 0.65),
+                    ],
+                  ),
+                ),
+              ),
+              Positioned(
+                bottom: 16,
+                left: 16,
+                right: 80,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontFamily: 'Literata',
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 12,
+                        color: Colors.white.withValues(alpha: 0.8),
+                      ),
+                    ),
                   ],
                 ),
               ),
-            ),
-            Positioned(
-              bottom: 16,
-              left: 16,
-              right: 80,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontFamily: 'Literata',
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
+              Positioned(
+                bottom: 16,
+                right: 16,
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Color(0xFF8C481A),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 12,
-                      color: Colors.white.withValues(alpha: 0.8),
-                    ),
+                  alignment: Alignment.center,
+                  child: const Icon(
+                    Icons.arrow_forward_rounded,
+                    color: Colors.white,
+                    size: 20,
                   ),
-                ],
-              ),
-            ),
-            Positioned(
-              bottom: 16,
-              right: 16,
-              child: Container(
-                width: 44,
-                height: 44,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Color(0xFF8C481A),
-                ),
-                alignment: Alignment.center,
-                child: const Icon(
-                  Icons.arrow_forward_rounded,
-                  color: Colors.white,
-                  size: 20,
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

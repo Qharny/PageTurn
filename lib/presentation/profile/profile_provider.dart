@@ -1,4 +1,6 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/auth_service.dart';
 import '../../services/supabase_service.dart';
 
@@ -85,6 +87,42 @@ class ProfileProvider extends ChangeNotifier {
 
     if (!isGuest) {
       await _upsert();
+    }
+  }
+
+  /// Uploads avatar image bytes to Supabase Storage under 'avatars' bucket,
+  /// obtains the public URL, updates the profile row, and refreshes the state.
+  Future<void> uploadAvatar(Uint8List bytes, String extension) async {
+    final user = AuthService.instance.currentUser;
+    if (user == null || isGuest) return;
+
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final path = '${user.id}/avatar_${DateTime.now().millisecondsSinceEpoch}.$extension';
+      
+      // Upload to the 'avatars' storage bucket
+      await SupabaseService.client.storage.from('avatars').uploadBinary(
+        path,
+        bytes,
+        fileOptions: const FileOptions(
+          contentType: 'image/jpeg',
+          upsert: true,
+        ),
+      );
+
+      // Get public URL
+      final publicUrl = SupabaseService.client.storage.from('avatars').getPublicUrl(path);
+
+      _avatarUrl = publicUrl;
+      await _upsert();
+    } catch (e) {
+      debugPrint('Error uploading avatar: $e');
+      rethrow;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
   }
 
