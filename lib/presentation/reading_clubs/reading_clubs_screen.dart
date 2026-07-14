@@ -388,11 +388,16 @@ class _ReadingClubsScreenState extends State<ReadingClubsScreen> {
       onPressed: () {
         SessionProvider.instance.requireAuth(
           context,
-          pendingAction: () {
-            ReadingClubProvider.instance.toggleJoin(club.id);
+          pendingAction: () async {
+            final success = await ReadingClubProvider.instance.toggleJoin(club.id);
+            if (!context.mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text("Joined ${club.name}! 🎉"),
+                content: Text(
+                  success
+                      ? "Joined ${club.name}! 🎉"
+                      : "Couldn't join the club. Please try again.",
+                ),
                 behavior: SnackBarBehavior.floating,
               ),
             );

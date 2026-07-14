@@ -10,6 +10,8 @@ import '../../domain/usecases/annotations/relocate_anchor.dart';
 import '../../theme.dart';
 import '../common/widgets/book_cover.dart';
 import '../explore/quote_studio/quote_studio_screen.dart';
+import '../library/library_provider.dart';
+import '../profile/reading_stats_provider.dart';
 import 'annotation_provider.dart';
 import 'reader_highlight_painter.dart';
 import 'reader_provider.dart';
@@ -58,14 +60,36 @@ class _EbookReaderScreenState extends State<EbookReaderScreen> {
   _PendingSelection? _pendingSelection;
   int _lastChapterIndex = 0;
 
+  int _progressReportedForChapter = -1;
+  final Stopwatch _sessionStopwatch = Stopwatch()..start();
+
   @override
   void initState() {
     super.initState();
     _reader.loadBook(widget.book);
+    _reader.addListener(_onReaderChanged);
+    // Opening the reader means this book is now "currently reading".
+    LibraryProvider.instance.addBook(widget.book);
+  }
+
+  /// Pushes real reading progress to [LibraryProvider] as chapters advance —
+  /// this is the only place `Book.progress` is ever written from actual
+  /// reading activity (previously nothing set it at all).
+  void _onReaderChanged() {
+    if (_reader.status != ReaderStatus.ready || _reader.chapters.isEmpty) return;
+    if (_reader.currentChapterIndex == _progressReportedForChapter) return;
+    _progressReportedForChapter = _reader.currentChapterIndex;
+    final progress = (_reader.currentChapterIndex + 1) / _reader.chapters.length;
+    LibraryProvider.instance.updateBookProgress(widget.book.id, progress);
   }
 
   @override
   void dispose() {
+    _reader.removeListener(_onReaderChanged);
+    final minutesRead = (_sessionStopwatch.elapsed.inSeconds / 60).round();
+    if (minutesRead >= 1) {
+      ReadingStatsProvider.instance.logSession(widget.book.id, minutesRead);
+    }
     _reader.dispose();
     _annotations.dispose();
     _selectionFocusNode.dispose();

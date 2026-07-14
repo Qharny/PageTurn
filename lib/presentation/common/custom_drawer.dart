@@ -1,9 +1,24 @@
 import 'package:flutter/material.dart';
 import '../../theme.dart';
 import '../../routes.dart';
+import '../../core/auth/session_provider.dart';
+import '../library/library_provider.dart';
+import '../profile/profile_provider.dart';
+import '../profile/reading_stats_provider.dart';
 
-class CustomDrawer extends StatelessWidget {
+class CustomDrawer extends StatefulWidget {
   const CustomDrawer({super.key});
+
+  @override
+  State<CustomDrawer> createState() => _CustomDrawerState();
+}
+
+class _CustomDrawerState extends State<CustomDrawer> {
+  @override
+  void initState() {
+    super.initState();
+    ProfileProvider.instance.loadProfile();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -21,7 +36,7 @@ class CustomDrawer extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildHeader(),
+              _buildHeader(context),
               const SizedBox(height: 32),
               _buildMenuList(context),
               const Spacer(),
@@ -33,72 +48,87 @@ class CustomDrawer extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 72,
-          height: 72,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.08),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-            image: const DecorationImage(
-              image: AssetImage('assets/images/profile_avatar.png'),
-              fit: BoxFit.cover,
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        const Text(
-          'Alexander Reader',
-          style: TextStyle(
-            fontFamily: 'Literata',
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF1E1E1E),
-          ),
-        ),
-        const SizedBox(height: 6),
-        Row(
+  Widget _buildHeader(BuildContext context) {
+    return ListenableBuilder(
+      listenable: Listenable.merge([
+        ProfileProvider.instance,
+        SessionProvider.instance,
+        LibraryProvider.instance,
+      ]),
+      builder: (context, _) {
+        final profile = ProfileProvider.instance;
+        final isGuest = profile.isGuest;
+        final booksRead = LibraryProvider.instance.books.where((b) => b.isFinished == true).length;
+        final avatarUrl = profile.avatarUrl;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              width: 72,
+              height: 72,
               decoration: BoxDecoration(
-                color: const Color(0xFFFDF0E9),
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: const Color(0xFFF9DBC7), width: 0.8),
-              ),
-              child: const Text(
-                'GOLD MEMBER',
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFFD97706),
-                  letterSpacing: 0.5,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+                image: DecorationImage(
+                  image: avatarUrl != null
+                      ? NetworkImage(avatarUrl)
+                      : const AssetImage('assets/images/profile_avatar.png') as ImageProvider,
+                  fit: BoxFit.cover,
                 ),
               ),
             ),
-            const SizedBox(width: 8),
-            const Text(
-              '•  12 Books Read',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: Color(0xFF7A6B63),
+            const SizedBox(height: 16),
+            Text(
+              profile.name,
+              style: const TextStyle(
+                fontFamily: 'Literata',
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1E1E1E),
               ),
             ),
+            const SizedBox(height: 6),
+            if (isGuest)
+              GestureDetector(
+                onTap: () {
+                  Navigator.pop(context);
+                  SessionProvider.instance.requireAuth(
+                    context,
+                    pendingAction: () {},
+                    reason: 'Sign in to sync your library and stats.',
+                  );
+                },
+                child: const Text(
+                  'Sign in to sync your progress',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.primary,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              )
+            else
+              Text(
+                '$booksRead Book${booksRead == 1 ? '' : 's'} Read',
+                style: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF7A6B63),
+                ),
+              ),
           ],
-        ),
-      ],
+        );
+      },
     );
   }
 
@@ -210,48 +240,61 @@ class CustomDrawer extends StatelessWidget {
   }
 
   Widget _buildReadingGoal() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF3ECE4),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE8DFD3), width: 1.2),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'READING GOAL',
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF8C481A),
-              letterSpacing: 0.5,
-            ),
+    return ListenableBuilder(
+      listenable: Listenable.merge([
+        LibraryProvider.instance,
+        ReadingStatsProvider.instance,
+      ]),
+      builder: (context, _) {
+        final booksRead = LibraryProvider.instance.books.where((b) => b.isFinished == true).length;
+        final goal = ReadingStatsProvider.instance.goalTarget;
+        final progress = goal > 0 ? (booksRead / goal).clamp(0.0, 1.0) : 0.0;
+        final year = DateTime.now().year;
+
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF3ECE4),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFE8DFD3), width: 1.2),
           ),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: 0.6,
-              minHeight: 6,
-              backgroundColor: const Color(0xFFE2D8CD),
-              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF8C481A)),
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'READING GOAL',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF8C481A),
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 6,
+                  backgroundColor: const Color(0xFFE2D8CD),
+                  valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF8C481A)),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                '${(progress * 100).round()}% of your $year goal reached.',
+                style: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF7A6B63),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 10),
-          const Text(
-            '60% of your 2024 goal reached.',
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-              color: Color(0xFF7A6B63),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

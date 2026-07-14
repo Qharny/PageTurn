@@ -1,0 +1,119 @@
+PAGETURN — MANUAL STEPS FOR PLAY STORE RELEASE
+================================================
+
+These steps require you personally — they involve secrets, external
+accounts, or irreversible decisions that an AI agent should not make
+or handle on your behalf.
+
+------------------------------------------------------------
+STEP 1 — CREATE A REAL RELEASE KEYSTORE
+------------------------------------------------------------
+This is the most important one. Once you publish with a keystore,
+losing it means you can NEVER update the app again — you'd have to
+publish as a brand new listing and lose all reviews/installs.
+
+1. Open a terminal (needs a JDK — Android Studio ships one).
+
+2. Generate the keystore (run as one line):
+
+   keytool -genkey -v -keystore pageturn-release-key.jks -keyalg RSA -keysize 2048 -validity 10000 -alias pageturn-key
+
+   - It will ask for a keystore password and a key password (can be
+     the same). CHOOSE STRONG PASSWORDS AND SAVE THEM IN A PASSWORD
+     MANAGER. If you lose this file or the passwords, there is no
+     recovery.
+   - Fill in the name/org/country prompts (anything reasonable).
+
+3. Move the generated file OUTSIDE the git repo, e.g.:
+   C:\Users\canny\keystores\pageturn-release-key.jks
+   Do NOT commit it. Do NOT put it inside android/app/.
+
+4. Create android/key.properties (also must NOT be committed):
+
+   storePassword=<your keystore password>
+   keyPassword=<your key password>
+   keyAlias=pageturn-key
+   storeFile=C:\\Users\\canny\\keystores\\pageturn-release-key.jks
+
+5. android/.gitignore already excludes key.properties and *.jks/
+   *.keystore — confirmed, nothing to change there.
+
+6. Gradle wiring is DONE — android/app/build.gradle.kts already reads
+   key.properties automatically and switches release builds to your
+   real keystore the moment the file exists. No further code changes
+   needed; just create the file as in step 4 above.
+
+7. Verify: flutter build appbundle --release
+   (should complete with no debug-signing warning once key.properties
+   exists)
+
+KEEP A BACKUP of the .jks file + passwords in at least two safe
+places (password manager + encrypted cloud backup).
+
+
+------------------------------------------------------------
+STEP 2 — applicationId — DONE
+------------------------------------------------------------
+Set to "kabuteyy.pageturn" per your confirmation (build.gradle.kts
+namespace + applicationId, and the Kotlin MainActivity.kt package
+path). Remember: this is now live in the repo but only becomes truly
+irreversible once you upload the first release to Play Console — if
+you want to change it, now is still the time.
+
+
+------------------------------------------------------------
+STEP 3 — PRIVACY POLICY (must be done manually, outside the codebase)
+------------------------------------------------------------
+1. Write the privacy policy text. Cover at minimum:
+   - What's collected: email address (Supabase auth), profile avatar
+     image uploads, reading activity/progress data.
+   - Why: account creation/login, personalization, syncing reading
+     progress across devices.
+   - Third parties: Supabase (backend/auth/storage), Google Books
+     API, Gutendex, LibriVox (content sources).
+   - How users can request data deletion.
+   - Contact email: kabuteymanasseh5@gmail.com (or a dedicated
+     support address).
+
+2. Host it publicly (GitHub Pages, Google Sites, Notion public page,
+   or any static hosting you already use).
+
+3. Give the final URL to Claude Code so it can wire it into the
+   "Privacy Policy" row in
+   lib/presentation/settings/settings_screen.dart (currently has no
+   onTap handler at all) via url_launcher.
+
+4. In Google Play Console (after creating your app listing):
+   - App content > Privacy Policy: paste the hosted URL.
+   - App content > Data Safety form: answer the questionnaire
+     yourself (email, photos/avatar, app activity) — this must be
+     filled in through your own Play Console login; it can't be
+     automated.
+
+
+------------------------------------------------------------
+STEP 4 — ACCOUNT DELETION (Play policy requirement)
+------------------------------------------------------------
+Google Play requires apps that support account creation to offer
+in-app account & data deletion. Currently there is no delete-account
+flow anywhere in the app, and no DELETE policy on the `profiles`
+table in Supabase. Ask Claude Code to add both:
+  - A Supabase RLS DELETE policy on `profiles` (and cascade cleanup
+    of related rows: library_books, reviews, reading_sessions,
+    club_members).
+  - A "Delete Account" action in Settings that calls it.
+
+
+------------------------------------------------------------
+ALREADY HANDLED BY CLAUDE CODE (no action needed from you)
+------------------------------------------------------------
+- Added <uses-permission android:name="android.permission.INTERNET"/>
+  to android/app/src/main/AndroidManifest.xml.
+- Changed android:label from "pageturn" to "PageTurn" in the same
+  file.
+- Set applicationId/namespace to "kabuteyy.pageturn" in
+  android/app/build.gradle.kts and moved MainActivity.kt to match
+  (android/app/src/main/kotlin/kabuteyy/pageturn/MainActivity.kt).
+- Wired android/app/build.gradle.kts to auto-load android/key.properties
+  and sign release builds with it once it exists (falls back to debug
+  signing until then, so nothing broke in the meantime).

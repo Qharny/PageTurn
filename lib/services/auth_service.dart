@@ -1,6 +1,16 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'supabase_service.dart';
 
+/// Thrown by [AuthService.signUp] when linking an email to an anonymous
+/// session succeeds but the account is still anonymous afterward — Supabase
+/// requires the confirmation link to be clicked before the upgrade completes.
+class AuthConfirmationPendingException implements Exception {
+  const AuthConfirmationPendingException();
+  @override
+  String toString() =>
+      'We sent a confirmation link to your email. Please confirm it to finish signing up.';
+}
+
 /// Wraps Supabase Auth for the guest-first / lazy-auth pattern.
 ///
 /// Flow:
@@ -77,7 +87,11 @@ class AuthService {
       await client.auth.updateUser(
         UserAttributes(email: email, password: password),
       );
-      // Re-verify email after linking (Supabase may send a confirmation).
+      // Supabase keeps the session anonymous until the confirmation link
+      // is clicked, even though the call above succeeded.
+      if (isAnonymous) {
+        throw const AuthConfirmationPendingException();
+      }
     } else {
       await client.auth.signUp(email: email, password: password);
     }

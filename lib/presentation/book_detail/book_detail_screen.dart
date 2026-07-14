@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import '../../theme.dart';
 import '../../data/models/book_model.dart';
 import '../../data/repositories/repository_locator.dart';
+import '../../domain/entities/review.dart';
 import '../../core/errors/app_exception.dart';
 import '../../routes.dart';
 import '../common/widgets/book_cover.dart';
 import '../library/library_provider.dart';
+import 'reviews_provider.dart';
 
 class BookDetailScreen extends StatefulWidget {
   const BookDetailScreen({super.key, required this.book});
@@ -26,38 +28,47 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
   static const _chocolateBrown = Color(0xFF5C3826);
 
   @override
+  void initState() {
+    super.initState();
+    ReviewsProvider.instance.loadReviews(widget.book.id);
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _warmWhite,
-      body: Stack(
-        children: [
-          // ── Main scrollable content ──────────────────────────────────
-          CustomScrollView(
-            physics: const BouncingScrollPhysics(),
-            slivers: [
-              SliverToBoxAdapter(child: _buildHeroHeader(context)),
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(22, 0, 22, 100),
-                sliver: SliverList(
-                  delegate: SliverChildListDelegate([
-                    _buildMetaRow(),
-                    const SizedBox(height: 28),
-                    _buildActionButtons(context),
-                    const SizedBox(height: 32),
-                    _buildSpecsRow(),
-                    const SizedBox(height: 32),
-                    _buildDescription(),
-                    const SizedBox(height: 28),
-                    _buildTagsRow(),
-                    const SizedBox(height: 32),
-                    _buildReviews(),
-                    const SizedBox(height: 20),
-                  ]),
+      body: ListenableBuilder(
+        listenable: ReviewsProvider.instance,
+        builder: (context, _) => Stack(
+          children: [
+            // ── Main scrollable content ──────────────────────────────────
+            CustomScrollView(
+              physics: const BouncingScrollPhysics(),
+              slivers: [
+                SliverToBoxAdapter(child: _buildHeroHeader(context)),
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 100),
+                  sliver: SliverList(
+                    delegate: SliverChildListDelegate([
+                      _buildMetaRow(),
+                      const SizedBox(height: 28),
+                      _buildActionButtons(context),
+                      const SizedBox(height: 32),
+                      _buildSpecsRow(),
+                      const SizedBox(height: 32),
+                      _buildDescription(),
+                      const SizedBox(height: 28),
+                      _buildTagsRow(),
+                      const SizedBox(height: 32),
+                      _buildReviews(),
+                      const SizedBox(height: 20),
+                    ]),
+                  ),
                 ),
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -336,13 +347,16 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
 
   // ── META ROW (rating + reviews) ──────────────────────────────────────────────
   Widget _buildMetaRow() {
+    final reviewCount = ReviewsProvider.instance.reviewCountFor(widget.book.id);
+    final avgRating = ReviewsProvider.instance.averageRatingFor(widget.book.id);
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         const Icon(Icons.star_rounded, color: Color(0xFFF4A836), size: 18),
         const SizedBox(width: 5),
         Text(
-          '${widget.book.rating}',
+          reviewCount == 0 ? '—' : avgRating.toStringAsFixed(1),
           style: const TextStyle(
             fontFamily: 'Inter',
             fontSize: 15,
@@ -352,7 +366,7 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
         ),
         const SizedBox(width: 6),
         Text(
-          '(${widget.book.reviewCount} reviews)',
+          reviewCount == 0 ? 'No reviews yet' : '($reviewCount review${reviewCount == 1 ? '' : 's'})',
           style: const TextStyle(
             fontFamily: 'Inter',
             fontSize: 13,
@@ -608,6 +622,9 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
 
   // ── REVIEWS ──────────────────────────────────────────────────────────────────
   Widget _buildReviews() {
+    final reviews = ReviewsProvider.instance.reviewsFor(widget.book.id);
+    final preview = reviews.take(3).toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -640,12 +657,18 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
           ],
         ),
         const SizedBox(height: 12),
-        ...widget.book.reviews.map((r) => _buildReviewCard(r)),
+        if (preview.isEmpty)
+          const Text(
+            'No reviews yet — be the first to share your thoughts.',
+            style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: _mutedText),
+          )
+        else
+          ...preview.map((r) => _buildReviewCard(r)),
       ],
     );
   }
 
-  Widget _buildReviewCard(BookReview review) {
+  Widget _buildReviewCard(Review review) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),

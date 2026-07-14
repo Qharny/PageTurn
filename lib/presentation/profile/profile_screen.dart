@@ -10,6 +10,7 @@ import '../common/widgets/book_cover.dart';
 import '../library/library_provider.dart';
 import '../../core/auth/session_provider.dart';
 import '../../services/auth_service.dart';
+import 'reading_stats_provider.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -734,42 +735,41 @@ class _ProfileScreenState extends State<ProfileScreen>
         return ListenableBuilder(
           listenable: ReadingClubProvider.instance,
           builder: (context, _) {
-            final booksRead = LibraryProvider.instance.books.where((b) => b.isFinished == true).length;
-            
-            // Calculate dynamic estimate of reading hours
-            final hoursRead = booksRead * 5 + LibraryProvider.instance.books.where((b) => b.progress != null && b.progress! > 0 && b.isFinished != true).length * 2;
-            
-            // Active streak check
-            final hasStreak = LibraryProvider.instance.books.isNotEmpty;
-            final streakStr = hasStreak ? '14d' : '0d';
-            
-            // Count joined clubs
-            final joinedClubsCount = ReadingClubProvider.instance.clubs
-                .where((c) => ReadingClubProvider.instance.isJoined(c.id))
-                .length;
+            return ListenableBuilder(
+              listenable: ReadingStatsProvider.instance,
+              builder: (context, _) {
+                final booksRead = LibraryProvider.instance.books.where((b) => b.isFinished == true).length;
+                final hoursRead = ReadingStatsProvider.instance.hoursRead;
+                final streakDays = ReadingStatsProvider.instance.streakDays;
 
-            final stats = [
-              _Stat(label: 'Books Read', value: '$booksRead'),
-              _Stat(label: 'Hours Read', value: '$hoursRead'),
-              _Stat(label: 'Streak', value: streakStr),
-              _Stat(label: 'Clubs', value: '$joinedClubsCount'),
-            ];
+                final joinedClubsCount = ReadingClubProvider.instance.clubs
+                    .where((c) => ReadingClubProvider.instance.isJoined(c.id))
+                    .length;
 
-            return Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-              child: Row(
-                children: stats.map((s) {
-                  final isLast = s == stats.last;
-                  return Expanded(
-                    child: Row(
-                      children: [
-                        Expanded(child: _buildStatItem(s)),
-                        if (!isLast) Container(width: 1, height: 32, color: _border),
-                      ],
-                    ),
-                  );
-                }).toList(),
-              ),
+                final stats = [
+                  _Stat(label: 'Books Read', value: '$booksRead'),
+                  _Stat(label: 'Hours Read', value: '$hoursRead'),
+                  _Stat(label: 'Streak', value: '${streakDays}d'),
+                  _Stat(label: 'Clubs', value: '$joinedClubsCount'),
+                ];
+
+                return Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                  child: Row(
+                    children: stats.map((s) {
+                      final isLast = s == stats.last;
+                      return Expanded(
+                        child: Row(
+                          children: [
+                            Expanded(child: _buildStatItem(s)),
+                            if (!isLast) Container(width: 1, height: 32, color: _border),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                );
+              },
             );
           },
         );
@@ -949,63 +949,151 @@ class _ProfileScreenState extends State<ProfileScreen>
     return ListenableBuilder(
       listenable: LibraryProvider.instance,
       builder: (context, _) {
-        final booksRead = LibraryProvider.instance.books.where((b) => b.isFinished == true).length;
-        const booksGoal = 10;
-        final progress = booksGoal > 0 ? (booksRead / booksGoal).clamp(0.0, 1.0) : 0.0;
+        return ListenableBuilder(
+          listenable: ReadingStatsProvider.instance,
+          builder: (context, _) {
+            final booksRead = LibraryProvider.instance.books.where((b) => b.isFinished == true).length;
+            final booksGoal = ReadingStatsProvider.instance.goalTarget;
+            final progress = booksGoal > 0 ? (booksRead / booksGoal).clamp(0.0, 1.0) : 0.0;
+            final year = DateTime.now().year;
 
-        return Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: _darkBrown,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            return GestureDetector(
+              onTap: () => SessionProvider.instance.requireAuth(
+                context,
+                pendingAction: () => _showEditGoalSheet(context),
+                reason: 'Sign in to set a reading goal.',
+              ),
+              child: Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: _darkBrown,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '$year Reading Goal',
+                          style: const TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white70,
+                          ),
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '$booksRead / $booksGoal books',
+                              style: const TextStyle(
+                                fontFamily: 'Literata',
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.primary,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            const Icon(Icons.edit_rounded, size: 13, color: Colors.white38),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: LinearProgressIndicator(
+                        value: progress,
+                        minHeight: 8,
+                        backgroundColor: Colors.white.withValues(alpha: 0.12),
+                        valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primary),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      '${(progress * 100).round()}% complete · ${booksRead >= booksGoal ? 'Goal achieved! 🏆' : '${booksGoal - booksRead} more to reach your goal 🎯'}',
+                      style: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 12,
+                        color: Colors.white54,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showEditGoalSheet(BuildContext context) {
+    final controller = TextEditingController(
+      text: '${ReadingStatsProvider.instance.goalTarget}',
+    );
+    bool saving = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (sheetContext, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(sheetContext).viewInsets.bottom + 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    '2026 Reading Goal',
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white70,
-                    ),
+                    'Set Your Reading Goal',
+                    style: TextStyle(fontFamily: 'Literata', fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF5C3826)),
                   ),
-                  Text(
-                    '$booksRead / $booksGoal books',
-                    style: const TextStyle(
-                      fontFamily: 'Literata',
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.primary,
+                  const SizedBox(height: 20),
+                  TextField(
+                    controller: controller,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Books this year',
+                      labelStyle: TextStyle(color: Color(0xFF7A6B63)),
+                      focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF8C481A))),
+                    ),
+                    style: const TextStyle(fontFamily: 'Inter', color: Color(0xFF1A0F0A)),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: saving
+                          ? null
+                          : () async {
+                              final target = int.tryParse(controller.text.trim());
+                              if (target == null || target < 1) return;
+                              setSheetState(() => saving = true);
+                              await ReadingStatsProvider.instance.setGoalTarget(target);
+                              if (sheetContext.mounted) Navigator.pop(sheetContext);
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF8C481A),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: saving
+                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : const Text('Save Goal', style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.bold)),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 14),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: LinearProgressIndicator(
-                  value: progress,
-                  minHeight: 8,
-                  backgroundColor: Colors.white.withValues(alpha: 0.12),
-                  valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primary),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                '${(progress * 100).round()}% complete · ${booksRead >= booksGoal ? 'Goal achieved! 🏆' : '${booksGoal - booksRead} more to reach your goal 🎯'}',
-                style: const TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 12,
-                  color: Colors.white54,
-                ),
-              ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
@@ -1102,13 +1190,15 @@ class _ProfileScreenState extends State<ProfileScreen>
             final List<_Activity> activities = [];
 
             for (final book in books) {
+              final updatedAt = LibraryProvider.instance.updatedAtFor(book.id);
               if (book.isFinished == true) {
                 activities.add(_Activity(
                   icon: Icons.check_circle_rounded,
                   color: AppTheme.tertiary,
                   label: 'Finished reading',
                   title: book.title,
-                  time: 'Recently',
+                  time: updatedAt != null ? _relativeTime(updatedAt) : 'Finished',
+                  sortKey: updatedAt,
                 ));
               } else if (book.progress != null && book.progress! > 0) {
                 activities.add(_Activity(
@@ -1116,10 +1206,17 @@ class _ProfileScreenState extends State<ProfileScreen>
                   color: AppTheme.primary,
                   label: 'Started reading',
                   title: book.title,
-                  time: 'In progress',
+                  time: updatedAt != null ? 'Last read ${_relativeTime(updatedAt)}' : 'In progress',
+                  sortKey: updatedAt,
                 ));
               }
             }
+            activities.sort((a, b) {
+              if (a.sortKey == null && b.sortKey == null) return 0;
+              if (a.sortKey == null) return 1;
+              if (b.sortKey == null) return -1;
+              return b.sortKey!.compareTo(a.sortKey!);
+            });
 
             final joinedClubs = ReadingClubProvider.instance.clubs
                 .where((c) => ReadingClubProvider.instance.isJoined(c.id))
@@ -1175,18 +1272,26 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Widget _buildWeeklyReadingStrip() {
-    final days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-    
-    return ListenableBuilder(
-      listenable: LibraryProvider.instance,
-      builder: (context, _) {
-        final hasBooks = LibraryProvider.instance.books.isNotEmpty;
-        final minutesRead = hasBooks ? [30, 15, 45, 20, 60, 40, 15] : [0, 0, 0, 0, 0, 0, 0];
-        final maxMinutes = minutesRead.reduce((a, b) => a > b ? a : b).toDouble();
+    const weekdayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
-        final totalMin = minutesRead.reduce((a, b) => a + b);
+    return ListenableBuilder(
+      listenable: ReadingStatsProvider.instance,
+      builder: (context, _) {
+        final minutesRead = ReadingStatsProvider.instance.weeklyMinutes;
+        final maxMinutes = minutesRead.isEmpty
+            ? 0.0
+            : minutesRead.reduce((a, b) => a > b ? a : b).toDouble();
+
+        // minutesRead[i] is (today - (6-i)) days ago, oldest first.
+        final today = DateTime.now();
+        final days = List.generate(7, (i) {
+          final date = today.subtract(Duration(days: 6 - i));
+          return weekdayLabels[date.weekday - 1];
+        });
+
+        final totalMin = minutesRead.fold<int>(0, (a, b) => a + b);
         final avgMin = (totalMin / 7).round();
-        final maxMin = minutesRead.reduce((a, b) => a > b ? a : b);
+        final maxMin = minutesRead.isEmpty ? 0 : minutesRead.reduce((a, b) => a > b ? a : b);
 
         return Container(
           padding: const EdgeInsets.all(18),
@@ -1207,7 +1312,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: List.generate(7, (i) {
                   final fraction = maxMinutes > 0 ? minutesRead[i] / maxMinutes : 0.0;
-                  final isToday = i == 5; // Saturday
+                  final isToday = i == 6; // last entry is always today
                   return Column(
                     children: [
                       Container(
@@ -1256,6 +1361,16 @@ class _ProfileScreenState extends State<ProfileScreen>
         Text(label, style: const TextStyle(fontFamily: 'Inter', fontSize: 10, color: _mutedText)),
       ],
     );
+  }
+
+  String _relativeTime(DateTime time) {
+    final diff = DateTime.now().difference(time);
+    if (diff.inMinutes < 1) return 'just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    if (diff.inDays < 30) return '${(diff.inDays / 7).floor()}w ago';
+    return '${(diff.inDays / 30).floor()}mo ago';
   }
 
   Widget _buildActivityRow(_Activity activity, bool isLast) {
@@ -1457,7 +1572,15 @@ class _Activity {
   final String label;
   final String title;
   final String time;
-  _Activity({required this.icon, required this.color, required this.label, required this.title, required this.time});
+  final DateTime? sortKey;
+  _Activity({
+    required this.icon,
+    required this.color,
+    required this.label,
+    required this.title,
+    required this.time,
+    this.sortKey,
+  });
 }
 
 class _Badge {

@@ -145,6 +145,16 @@ class _AuthSheetState extends State<_AuthSheet>
         Navigator.pop(context);
         widget.onSuccess();
       }
+    } on AuthConfirmationPendingException catch (e) {
+      // Sign-up call succeeded but the account is still anonymous until the
+      // confirmation email is clicked — do NOT run the pending action
+      // (e.g. joining a club), since the user isn't really authenticated yet.
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
+      }
     } catch (e) {
       setState(() {
         _error = _friendlyError(e.toString());

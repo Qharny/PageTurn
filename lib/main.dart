@@ -18,6 +18,7 @@ import 'core/errors/app_exception.dart';
 import 'presentation/common/widgets/book_cover.dart';
 import 'core/auth/session_provider.dart';
 import 'presentation/profile/profile_provider.dart';
+import 'presentation/profile/reading_stats_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,6 +33,9 @@ void main() async {
   // ask ProfileProvider to reload (or reset) the user's profile data.
   SessionProvider.instance.addListener(() {
     ProfileProvider.instance.onAuthChanged();
+    ReadingClubProvider.instance.onAuthChanged();
+    LibraryProvider.instance.onAuthChanged();
+    ReadingStatsProvider.instance.onAuthChanged();
   });
 
   runApp(const MyApp());

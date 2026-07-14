@@ -10,6 +10,7 @@ import '../reading_clubs/reading_club_provider.dart';
 import '../reading_clubs/club_detail_screen.dart';
 import '../../core/auth/session_provider.dart';
 import 'genre_books_screen.dart';
+import 'color_search/color_search_screen.dart';
 
 class ExploreScreen extends StatefulWidget {
   const ExploreScreen({super.key});
@@ -57,6 +58,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
             _buildTrendingLeaderboard(context),
             const SizedBox(height: 32),
             _buildReadingClubs(context),
+            const SizedBox(height: 32),
+            _buildBrowseByColor(context),
             const SizedBox(height: 32),
             _buildGenreSpotlight(context),
           ],
@@ -420,12 +423,15 @@ class _ExploreScreenState extends State<ExploreScreen> {
                           onPressed: () {
                             SessionProvider.instance.requireAuth(
                               context,
-                              pendingAction: () {
-                                ReadingClubProvider.instance.toggleJoin(club.id);
+                              pendingAction: () async {
+                                final success = await ReadingClubProvider.instance.toggleJoin(club.id);
+                                if (!context.mounted) return;
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                     content: Text(
-                                      isJoined ? "Left ${club.name}" : "Joined ${club.name}! 🎉",
+                                      success
+                                          ? (isJoined ? "Left ${club.name}" : "Joined ${club.name}! 🎉")
+                                          : "Couldn't update membership. Please try again.",
                                     ),
                                     behavior: SnackBarBehavior.floating,
                                     duration: const Duration(seconds: 2),
@@ -463,6 +469,89 @@ class _ExploreScreenState extends State<ExploreScreen> {
           },
         ),
       ],
+    );
+  }
+
+  Widget _buildBrowseByColor(BuildContext context) {
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const ColorSearchScreen()),
+      ),
+      child: Container(
+        height: 100,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: const LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [
+              Color(0xFFE53935),
+              Color(0xFFFB8C00),
+              Color(0xFF43A047),
+              Color(0xFF1E88E5),
+              Color(0xFF8E24AA),
+            ],
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Container(color: Colors.black.withValues(alpha: 0.32)),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.18),
+                        shape: BoxShape.circle,
+                      ),
+                      alignment: Alignment.center,
+                      child: const Icon(Icons.palette_rounded, color: Colors.white, size: 22),
+                    ),
+                    const SizedBox(width: 16),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Browse by Color',
+                            style: TextStyle(
+                              fontFamily: 'Literata',
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Find your next read by cover aesthetic',
+                            style: TextStyle(fontFamily: 'Inter', fontSize: 11, color: Colors.white70),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 20),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

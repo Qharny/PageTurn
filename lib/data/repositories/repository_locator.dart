@@ -4,6 +4,7 @@ import '../../domain/repositories/annotation_repository.dart';
 import '../sources/local/api_cache_source.dart';
 import '../sources/local/hive_local_source.dart';
 import '../sources/local/annotation_local_source.dart';
+import '../sources/local/cover_color_cache.dart';
 import '../sources/remote/google_books_source.dart';
 import '../sources/remote/gutendex_source.dart';
 import '../sources/remote/librivox_source.dart';
@@ -22,6 +23,7 @@ class RepositoryLocator {
   static final HiveLocalSource localSource = HiveLocalSource();
   static final ApiCacheSource apiCache = ApiCacheSource();
   static final AnnotationLocalSource annotationLocalSource = AnnotationLocalSource();
+  static final CoverColorCache coverColorCache = CoverColorCache();
 
   /// Mutable (rather than the repositories below) so tests can swap in a
   /// fake `http.Client`-backed source before the app first touches
@@ -58,5 +60,6 @@ class RepositoryLocator {
     await localSource.init(testDirectoryPath: testDirectoryPath);
     await apiCache.init();
     await annotationLocalSource.init();
+    await coverColorCache.init();
   }
 }

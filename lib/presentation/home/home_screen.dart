@@ -226,6 +226,14 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildBookOfTheDay(BuildContext context) {
     final book = _getBookOfTheDay();
     if (book == null) return const SizedBox.shrink();
+    return ListenableBuilder(
+      listenable: LibraryProvider.instance,
+      builder: (context, _) => _buildBookOfTheDayCard(context, book),
+    );
+  }
+
+  Widget _buildBookOfTheDayCard(BuildContext context, Book book) {
+    final isSaved = LibraryProvider.instance.isBookmarked(book.id);
     return GestureDetector(
       onTap: () {
         Navigator.of(context).pushNamed(AppRoutes.details, arguments: book);
@@ -359,20 +367,35 @@ class _HomeScreenState extends State<HomeScreen> {
                 Expanded(
                   child: SizedBox(
                     height: 46,
-                    child: OutlinedButton(
+                    child: OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF5C3826),
-                        side: const BorderSide(color: Color(0xFFE2DDD5), width: 1.5),
+                        foregroundColor: isSaved ? AppTheme.primary : const Color(0xFF5C3826),
+                        side: BorderSide(
+                          color: isSaved ? AppTheme.primary : const Color(0xFFE2DDD5),
+                          width: 1.5,
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
                         elevation: 0,
                         backgroundColor: Colors.white,
                       ),
-                      onPressed: () {},
-                      child: const Text(
-                        'Save for later',
-                        style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.bold),
+                      onPressed: () {
+                        LibraryProvider.instance.toggleBookmark(book);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(isSaved ? 'Removed from your library' : 'Saved for later'),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      },
+                      icon: Icon(
+                        isSaved ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded,
+                        size: 18,
+                      ),
+                      label: Text(
+                        isSaved ? 'Saved' : 'Save for later',
+                        style: const TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),

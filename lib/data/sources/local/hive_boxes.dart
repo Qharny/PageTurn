@@ -17,4 +17,9 @@ class HiveBoxes {
   /// or write it; see `AnnotationRepositoryImpl`'s `// SYNC:` seam for where
   /// a future Supabase sync would attach these to an account.
   static const String annotations = 'annotations_box';
+
+  /// Each book's computed dominant cover-color category (see
+  /// `ColorCategory`), keyed by [Book.id] — avoids re-downloading and
+  /// re-analyzing the same cover image every time Browse by Color loads.
+  static const String coverColors = 'cover_colors_box';
 }

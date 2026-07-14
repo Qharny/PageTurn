@@ -314,9 +314,12 @@ class ReadingClubProvider extends ChangeNotifier {
   /// Requires a real (non-anonymous) session — every launch gets a guest
   /// anonymous Supabase session via `AuthService.ensureSession`, so checking
   /// `currentUser != null` alone would let guests join clubs and chat.
-  Future<void> toggleJoin(String clubId) async {
-    if (!_isSupabaseInitialized) return;
-    if (!AuthService.instance.isAuthenticated) return;
+  ///
+  /// Returns `true` on success so callers can show accurate feedback instead
+  /// of assuming the join always worked.
+  Future<bool> toggleJoin(String clubId) async {
+    if (!_isSupabaseInitialized) return false;
+    if (!AuthService.instance.isAuthenticated) return false;
     final user = AuthService.instance.currentUser!;
 
     final alreadyJoined = _joinedClubs.contains(clubId);
@@ -346,8 +349,10 @@ class ReadingClubProvider extends ChangeNotifier {
       }
       loadMembers(clubId);
       notifyListeners();
+      return true;
     } catch (e) {
       debugPrint('Error toggling club membership: $e');
+      return false;
     }
   }
 

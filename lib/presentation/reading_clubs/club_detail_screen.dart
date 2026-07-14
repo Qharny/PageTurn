@@ -159,12 +159,15 @@ class _ReadingClubDetailScreenState extends State<ReadingClubDetailScreen>
                 onPressed: () {
                   SessionProvider.instance.requireAuth(
                     context,
-                    pendingAction: () {
-                      ReadingClubProvider.instance.toggleJoin(club.id);
+                    pendingAction: () async {
+                      final success = await ReadingClubProvider.instance.toggleJoin(club.id);
+                      if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(
-                            isJoined ? "Left ${club.name}" : "Joined ${club.name}! 🎉",
+                            success
+                                ? (isJoined ? "Left ${club.name}" : "Joined ${club.name}! 🎉")
+                                : "Couldn't update membership. Please try again.",
                           ),
                           behavior: SnackBarBehavior.floating,
                         ),
@@ -573,11 +576,16 @@ class _ReadingClubDetailScreenState extends State<ReadingClubDetailScreen>
               onPressed: () {
                 SessionProvider.instance.requireAuth(
                   context,
-                  pendingAction: () {
-                    ReadingClubProvider.instance.toggleJoin(club.id);
+                  pendingAction: () async {
+                    final success = await ReadingClubProvider.instance.toggleJoin(club.id);
+                    if (!mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text("Joined ${club.name}! 🎉"),
+                        content: Text(
+                          success
+                              ? "Joined ${club.name}! 🎉"
+                              : "Couldn't join the club. Please try again.",
+                        ),
                         behavior: SnackBarBehavior.floating,
                       ),
                     );

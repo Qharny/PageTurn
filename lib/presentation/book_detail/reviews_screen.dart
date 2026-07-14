@@ -1,81 +1,82 @@
 import 'package:flutter/material.dart';
 import '../../theme.dart';
 import '../../data/models/book_model.dart';
+import '../../domain/entities/review.dart';
+import '../../core/auth/session_provider.dart';
+import 'reviews_provider.dart';
 
-/// Full "See all" page for a book's reviews. Shows a rating summary with a
-/// star distribution and the complete list of reader reviews.
-class ReviewsScreen extends StatelessWidget {
+/// Full "See all" page for a book's reviews — real reviews from the
+/// Supabase `reviews` table, with a "Write a Review" flow for signed-in
+/// users.
+class ReviewsScreen extends StatefulWidget {
   const ReviewsScreen({super.key, required this.book});
 
   final Book book;
 
+  @override
+  State<ReviewsScreen> createState() => _ReviewsScreenState();
+}
+
+class _ReviewsScreenState extends State<ReviewsScreen> {
   static const _chocolateBrown = Color(0xFF5C3826);
   static const _mutedText = Color(0xFF7A6B63);
 
-  /// Combines the book's own reviews with a few sample reviews so the page
-  /// always feels populated.
-  List<BookReview> get _allReviews => [
-        ...book.reviews,
-        const BookReview(
-          reviewerName: 'Maya R.',
-          reviewerAvatarUrl: '',
-          rating: 5,
-          comment:
-              'Could not put it down. The pacing is immaculate and the ending genuinely surprised me.',
-        ),
-        const BookReview(
-          reviewerName: 'Daniel O.',
-          reviewerAvatarUrl: '',
-          rating: 4,
-          comment:
-              'Beautifully written with rich, memorable characters. Dragged a little in the middle but well worth it.',
-        ),
-        const BookReview(
-          reviewerName: 'Priya S.',
-          reviewerAvatarUrl: '',
-          rating: 5,
-          comment:
-              'One of my favourite reads this year. I already recommended it to everyone in my book club.',
-        ),
-        const BookReview(
-          reviewerName: 'Tom H.',
-          reviewerAvatarUrl: '',
-          rating: 3,
-          comment:
-              'Solid but not spectacular. Some plot threads felt unresolved by the final chapter.',
-        ),
-        const BookReview(
-          reviewerName: 'Grace W.',
-          reviewerAvatarUrl: '',
-          rating: 5,
-          comment:
-              'Gorgeous prose and a story with real heart. The kind of book you think about long after finishing.',
-        ),
-      ];
+  @override
+  void initState() {
+    super.initState();
+    ReviewsProvider.instance.loadReviews(widget.book.id);
+  }
+
+  void _openWriteReviewSheet() {
+    SessionProvider.instance.requireAuth(
+      context,
+      pendingAction: () => _showReviewSheet(context, widget.book.id),
+      reason: 'Sign in to write a review.',
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final reviews = _allReviews;
-    return Scaffold(
-      backgroundColor: AppTheme.neutral,
-      body: SafeArea(
-        child: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            SliverToBoxAdapter(child: _buildHeader(context)),
-            SliverToBoxAdapter(child: _buildSummary(reviews)),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) => _buildReviewCard(reviews[index]),
-                  childCount: reviews.length,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+    return ListenableBuilder(
+      listenable: ReviewsProvider.instance,
+      builder: (context, _) {
+        final reviews = ReviewsProvider.instance.reviewsFor(widget.book.id);
+        final isLoading = ReviewsProvider.instance.isLoading(widget.book.id);
+
+        return Scaffold(
+          backgroundColor: AppTheme.neutral,
+          floatingActionButton: FloatingActionButton.extended(
+            onPressed: _openWriteReviewSheet,
+            backgroundColor: AppTheme.primary,
+            foregroundColor: Colors.white,
+            icon: const Icon(Icons.rate_review_rounded, size: 18),
+            label: const Text('Write a Review', style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.bold)),
+          ),
+          body: SafeArea(
+            child: isLoading && reviews.isEmpty
+                ? const Center(child: CircularProgressIndicator(color: AppTheme.primary))
+                : CustomScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    slivers: [
+                      SliverToBoxAdapter(child: _buildHeader(context)),
+                      SliverToBoxAdapter(child: _buildSummary(reviews)),
+                      if (reviews.isEmpty)
+                        SliverToBoxAdapter(child: _buildEmptyState())
+                      else
+                        SliverPadding(
+                          padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
+                          sliver: SliverList(
+                            delegate: SliverChildBuilderDelegate(
+                              (context, index) => _buildReviewCard(reviews[index]),
+                              childCount: reviews.length,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+          ),
+        );
+      },
     );
   }
 
@@ -113,7 +114,7 @@ class ReviewsScreen extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  book.title,
+                  widget.book.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -130,17 +131,44 @@ class ReviewsScreen extends StatelessWidget {
     );
   }
 
-  /// Weighted star distribution (5→1) derived from the book's average rating.
-  List<double> _distribution(double avg) {
-    if (avg >= 4.5) return [0.72, 0.20, 0.05, 0.02, 0.01];
-    if (avg >= 4.0) return [0.55, 0.28, 0.10, 0.05, 0.02];
-    if (avg >= 3.5) return [0.40, 0.30, 0.18, 0.08, 0.04];
-    return [0.28, 0.30, 0.22, 0.12, 0.08];
+  Widget _buildEmptyState() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(32, 40, 32, 100),
+      child: Column(
+        children: [
+          const Icon(Icons.rate_review_outlined, size: 48, color: _mutedText),
+          const SizedBox(height: 16),
+          const Text(
+            'No reviews yet',
+            style: TextStyle(fontFamily: 'Literata', fontSize: 17, fontWeight: FontWeight.bold, color: _chocolateBrown),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Be the first to share your thoughts on this book.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: _mutedText),
+          ),
+        ],
+      ),
+    );
   }
 
-  Widget _buildSummary(List<BookReview> reviews) {
-    final avg = book.rating;
-    final dist = _distribution(avg);
+  /// Exact per-star counts from the real review set (no fabricated curve).
+  List<int> _distribution(List<Review> reviews) {
+    final counts = List.filled(5, 0);
+    for (final r in reviews) {
+      final star = r.rating.clamp(1, 5);
+      counts[star - 1]++;
+    }
+    return counts.reversed.toList(); // index 0 = 5-star
+  }
+
+  Widget _buildSummary(List<Review> reviews) {
+    final count = reviews.length;
+    final avg = count == 0
+        ? 0.0
+        : reviews.map((r) => r.rating).reduce((a, b) => a + b) / count;
+    final dist = _distribution(reviews);
 
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 8, 20, 16),
@@ -156,11 +184,10 @@ class ReviewsScreen extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Average score
           Column(
             children: [
               Text(
-                avg.toStringAsFixed(1),
+                count == 0 ? '—' : avg.toStringAsFixed(1),
                 style: const TextStyle(
                   fontFamily: 'Literata',
                   fontSize: 44,
@@ -182,7 +209,7 @@ class ReviewsScreen extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                '${book.reviewCount} reviews',
+                count == 0 ? 'No ratings yet' : '$count review${count == 1 ? '' : 's'}',
                 style: const TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 11,
@@ -192,11 +219,11 @@ class ReviewsScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(width: 24),
-          // Distribution bars
           Expanded(
             child: Column(
               children: List.generate(5, (i) {
                 final star = 5 - i;
+                final fraction = count == 0 ? 0.0 : dist[i] / count;
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 2.5),
                   child: Row(
@@ -215,7 +242,7 @@ class ReviewsScreen extends StatelessWidget {
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(3),
                           child: LinearProgressIndicator(
-                            value: dist[i],
+                            value: fraction,
                             backgroundColor: const Color(0xFFF0EAE0),
                             valueColor: const AlwaysStoppedAnimation<Color>(
                                 Color(0xFFF4A836)),
@@ -234,7 +261,7 @@ class ReviewsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildReviewCard(BookReview review) {
+  Widget _buildReviewCard(Review review) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -258,7 +285,7 @@ class ReviewsScreen extends StatelessWidget {
                 alignment: Alignment.center,
                 child: Text(
                   review.reviewerName.isNotEmpty
-                      ? review.reviewerName.substring(0, 1)
+                      ? review.reviewerName.substring(0, 1).toUpperCase()
                       : '?',
                   style: const TextStyle(
                     fontFamily: 'Inter',
@@ -311,6 +338,100 @@ class ReviewsScreen extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  void _showReviewSheet(BuildContext context, String bookId) {
+    final existing = ReviewsProvider.instance.myReviewFor(bookId);
+    int rating = existing?.rating ?? 5;
+    final commentCtrl = TextEditingController(text: existing?.comment ?? '');
+    bool saving = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (sheetContext, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(sheetContext).viewInsets.bottom + 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    existing != null ? 'Edit Your Review' : 'Write a Review',
+                    style: const TextStyle(fontFamily: 'Literata', fontSize: 20, fontWeight: FontWeight.bold, color: _chocolateBrown),
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(5, (i) {
+                      final starValue = i + 1;
+                      return IconButton(
+                        onPressed: () => setSheetState(() => rating = starValue),
+                        icon: Icon(
+                          starValue <= rating ? Icons.star_rounded : Icons.star_border_rounded,
+                          color: const Color(0xFFF4A836),
+                          size: 32,
+                        ),
+                      );
+                    }),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: commentCtrl,
+                    maxLines: 4,
+                    decoration: const InputDecoration(
+                      labelText: 'Your thoughts',
+                      labelStyle: TextStyle(color: _mutedText),
+                      focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: AppTheme.primary)),
+                      border: OutlineInputBorder(),
+                    ),
+                    style: const TextStyle(fontFamily: 'Inter', color: _chocolateBrown),
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: saving
+                          ? null
+                          : () async {
+                              setSheetState(() => saving = true);
+                              final success = await ReviewsProvider.instance.submitReview(
+                                bookId,
+                                rating: rating,
+                                comment: commentCtrl.text.trim(),
+                              );
+                              if (sheetContext.mounted) Navigator.pop(sheetContext);
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(success ? 'Review posted!' : "Couldn't post your review. Please try again."),
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                              }
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: saving
+                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : const Text('Post Review', style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

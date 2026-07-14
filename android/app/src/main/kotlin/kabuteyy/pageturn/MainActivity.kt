@@ -1,4 +1,4 @@
-package com.example.pageturn
+package kabuteyy.pageturn
 
 import io.flutter.embedding.android.FlutterActivity
 
